@@ -5,7 +5,7 @@ import { Conversation, conversationInputs } from './conversation';
 import { movePlayer } from './movement';
 import { inputHandler } from './inputHandler';
 import { point } from '../util/types';
-import { Descriptions } from '../../data/characters';
+import { Descriptions, characters } from '../../data/characters';
 import { AgentDescription } from './agentDescription';
 import { Agent } from './agent';
 
@@ -122,11 +122,14 @@ export const agentInputs = {
     },
     handler: (game, now, args) => {
       const description = Descriptions[args.descriptionIndex];
+      const characterName =
+        description.character ??
+        characters[Math.floor(Math.random() * characters.length)].name;
       const playerId = Player.join(
         game,
         now,
         description.name,
-        description.character,
+        characterName,
         description.identity,
       );
       const agentId = game.allocId('agents');

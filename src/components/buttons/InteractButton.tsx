@@ -10,7 +10,11 @@ import { useCallback } from 'react';
 import { waitForInput } from '../../hooks/sendInput';
 import { useServerGame } from '../../hooks/serverGame';
 
-export default function InteractButton() {
+export default function InteractButton(props: {
+  name?: string;
+  character?: string;
+  description?: string;
+}) {
   // const { isAuthenticated } = useConvexAuth();
   const worldStatus = useQuery(api.world.defaultWorldStatus);
   const worldId = worldStatus?.worldId;
@@ -27,7 +31,12 @@ export default function InteractButton() {
     async (worldId: Id<'worlds'>) => {
       let inputId;
       try {
-        inputId = await join({ worldId });
+        inputId = await join({
+          worldId,
+          name: props.name,
+          character: props.character,
+          description: props.description,
+        } as any);
       } catch (e: any) {
         if (e instanceof ConvexError) {
           toast.error(e.data);
@@ -41,7 +50,7 @@ export default function InteractButton() {
         toast.error(e.message);
       }
     },
-    [convex],
+    [convex, props.name, props.character, props.description],
   );
 
   const joinOrLeaveGame = () => {

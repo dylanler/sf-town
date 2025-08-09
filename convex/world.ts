@@ -11,6 +11,7 @@ import {
 import { playerId } from './aiTown/ids';
 import { kickEngine, startEngine, stopEngine } from './aiTown/main';
 import { engineInsertInput } from './engine/abstractGame';
+import { Doc, Id } from './_generated/dataModel';
 
 export const defaultWorldStatus = query({
   handler: async (ctx) => {
@@ -111,6 +112,9 @@ export const userStatus = query({
 export const joinWorld = mutation({
   args: {
     worldId: v.id('worlds'),
+    name: v.optional(v.string()),
+    character: v.optional(v.string()),
+    description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // const identity = await ctx.auth.getUserIdentity();
@@ -119,7 +123,8 @@ export const joinWorld = mutation({
     // }
     // const name =
     //   identity.givenName || identity.nickname || (identity.email && identity.email.split('@')[0]);
-    const name = DEFAULT_NAME;
+    const providedName = args.name?.trim();
+    const name = providedName && providedName.length > 0 ? providedName : DEFAULT_NAME;
 
     // if (!name) {
     //   throw new ConvexError(`Missing name on ${JSON.stringify(identity)}`);
@@ -129,10 +134,17 @@ export const joinWorld = mutation({
       throw new ConvexError(`Invalid world ID: ${args.worldId}`);
     }
     // const { tokenIdentifier } = identity;
+    const chosenCharacter =
+      (args.character && characters.find((c) => c.name === args.character)?.name) ||
+      characters[Math.floor(Math.random() * characters.length)].name;
+    const description =
+      (args.description && args.description.trim().length > 0
+        ? args.description
+        : `${name} is a human player`);
     return await insertInput(ctx, world._id, 'join', {
       name,
-      character: characters[Math.floor(Math.random() * characters.length)].name,
-      description: `${DEFAULT_NAME} is a human player`,
+      character: chosenCharacter,
+      description,
       // description: `${identity.givenName} is a human player`,
       tokenIdentifier: DEFAULT_NAME,
     });
@@ -253,5 +265,72 @@ export const previousConversation = query({
       }
     }
     return null;
+  },
+});
+
+export const listConversations = query({
+  args: {
+    worldId: v.id('worlds'),
+    participantNames: v.optional(v.array(v.string())),
+    startTime: v.optional(v.number()),
+    endTime: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const world = await ctx.db.get(args.worldId);
+    if (!world) {
+      throw new Error(`Invalid world ID: ${args.worldId}`);
+    }
+
+    const nameFilter = (args.participantNames && args.participantNames.map((n) => n.toLowerCase())) || [];
+
+    // Map names to playerIds for filtering, if provided
+    let allowedPlayerIds: string[] | undefined;
+    if (nameFilter.length > 0) {
+      const allDescriptions = await ctx.db
+        .query('playerDescriptions')
+        .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+        .collect();
+      allowedPlayerIds = allDescriptions
+        .filter((d) => nameFilter.includes(d.name.toLowerCase()))
+        .map((d) => d.playerId);
+    }
+
+    // Fetch conversations for world
+    const conversations = await ctx.db
+      .query('archivedConversations')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+      .collect();
+
+    // Filter by participants and time
+    const filtered = conversations.filter((c) => {
+      if (allowedPlayerIds && !c.participants.some((p) => allowedPlayerIds!.includes(p))) {
+        return false;
+      }
+      if (args.startTime !== undefined && c.ended < args.startTime) {
+        return false;
+      }
+      if (args.endTime !== undefined && c.created > args.endTime) {
+        return false;
+      }
+      return true;
+    });
+
+    // Fetch names for participants and shape response
+    const descriptions = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+      .collect();
+    const idToName = new Map(descriptions.map((d) => [d.playerId, d.name] as const));
+
+    return filtered
+      .sort((a, b) => b.ended - a.ended)
+      .map((c) => ({
+        id: c.id,
+        created: c.created,
+        ended: c.ended,
+        numMessages: c.numMessages,
+        lastMessage: c.lastMessage,
+        participants: c.participants.map((p) => ({ playerId: p, name: idToName.get(p) || p })),
+      }));
   },
 });

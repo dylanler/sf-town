@@ -1,10 +1,9 @@
 import Game from './components/Game.tsx';
 
 import { ToastContainer } from 'react-toastify';
-import a16zImg from '../assets/a16z.png';
-import convexImg from '../assets/convex.svg';
 import starImg from '../assets/star.svg';
 import helpImg from '../assets/help.svg';
+import chatsImg from '../assets/ui/chats.svg';
 // import { UserButton } from '@clerk/clerk-react';
 // import { Authenticated, Unauthenticated } from 'convex/react';
 // import LoginButton from './components/buttons/LoginButton.tsx';
@@ -15,13 +14,19 @@ import Button from './components/buttons/Button.tsx';
 import InteractButton from './components/buttons/InteractButton.tsx';
 import FreezeButton from './components/FreezeButton.tsx';
 import { MAX_HUMAN_PLAYERS } from '../convex/constants.ts';
-import PoweredByConvex from './components/PoweredByConvex.tsx';
+import CharacterInitForm from './components/CharacterInitForm.tsx';
+import ConversationsModal from './components/ConversationsModal.tsx';
+ 
 
 export default function Home() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [playerName, setPlayerName] = useState('Me');
+  const [playerCharacter, setPlayerCharacter] = useState('f1');
+  const [playerDescription, setPlayerDescription] = useState('Me is a human player');
+  const [conversationsOpen, setConversationsOpen] = useState(false);
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-between font-body game-background">
-      <PoweredByConvex />
+      
 
       <ReactModal
         isOpen={helpModalOpen}
@@ -74,7 +79,7 @@ export default function Home() {
 
       <div className="w-full lg:h-screen min-h-screen relative isolate overflow-hidden lg:p-8 shadow-2xl flex flex-col justify-start">
         <h1 className="mx-auto text-4xl p-3 sm:text-8xl lg:text-9xl font-bold font-display leading-none tracking-wide game-title w-full text-left sm:text-center sm:w-auto">
-          AI Town
+          San Francisco Simulacra
         </h1>
 
         <div className="max-w-xs md:max-w-xl lg:max-w-none mx-auto my-4 text-center text-base sm:text-xl md:text-2xl text-white leading-tight shadow-solid">
@@ -86,6 +91,17 @@ export default function Home() {
           </Unauthenticated> */}
         </div>
 
+        <div className="mb-4 w-full flex flex-col items-center gap-3">
+          <CharacterInitForm
+            name={playerName}
+            setName={setPlayerName}
+            character={playerCharacter}
+            setCharacter={setPlayerCharacter}
+            description={playerDescription}
+            setDescription={setPlayerDescription}
+          />
+        </div>
+
         <Game />
 
         <footer className="justify-end bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
@@ -95,19 +111,22 @@ export default function Home() {
             <Button href="https://github.com/a16z-infra/ai-town" imgUrl={starImg}>
               Star
             </Button>
-            <InteractButton />
+            <InteractButton
+              name={playerName}
+              character={playerCharacter}
+              description={playerDescription}
+            />
+            <Button imgUrl={chatsImg} onClick={() => setConversationsOpen(true)}>
+              Conversations
+            </Button>
             <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>
               Help
             </Button>
           </div>
-          <a href="https://a16z.com">
-            <img className="w-8 h-8 pointer-events-auto" src={a16zImg} alt="a16z" />
-          </a>
-          <a href="https://convex.dev/c/ai-town">
-            <img className="w-20 h-8 pointer-events-auto" src={convexImg} alt="Convex" />
-          </a>
+          
         </footer>
         <ToastContainer position="bottom-right" autoClose={2000} closeOnClick theme="dark" />
+        <ConversationsModal isOpen={conversationsOpen} onRequestClose={() => setConversationsOpen(false)} />
       </div>
     </main>
   );

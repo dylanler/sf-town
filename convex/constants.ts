@@ -16,7 +16,7 @@ export const TYPING_TIMEOUT = 15 * 1000;
 export const COLLISION_THRESHOLD = 0.75;
 
 // How many human players can be in a world at once.
-export const MAX_HUMAN_PLAYERS = 8;
+export const MAX_HUMAN_PLAYERS = 55;
 
 // Don't talk to anyone for 15s after having a conversation.
 export const CONVERSATION_COOLDOWN = 15000;
@@ -28,7 +28,7 @@ export const ACTIVITY_COOLDOWN = 10_000;
 export const PLAYER_CONVERSATION_COOLDOWN = 60000;
 
 // Invite 80% of invites that come from other agents.
-export const INVITE_ACCEPT_PROBABILITY = 0.8;
+export const INVITE_ACCEPT_PROBABILITY = 0.5;
 
 // Wait for 1m for invites to be accepted.
 export const INVITE_TIMEOUT = 60000;
