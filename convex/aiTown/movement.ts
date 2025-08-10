@@ -84,19 +84,19 @@ class PathfindingCache {
 }
 
 class MinDistancesPool {
-  private pools: PathCandidate[][][] = [];
+  private pools: (PathCandidate | undefined)[][][] = [];
 
-  get(width: number, height: number): PathCandidate[][] {
+  get(width: number, height: number): (PathCandidate | undefined)[][] {
     let pool = this.pools.find(p => p.length >= height && p[0]?.length >= width);
 
     if (!pool) {
-      pool = Array(height).fill(null).map(() => Array(width).fill(null));
+      pool = Array(height).fill(null).map(() => Array(width).fill(undefined));
       this.pools.push(pool);
     }
 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        pool[y][x] = null;
+        pool[y][x] = undefined;
       }
     }
 
