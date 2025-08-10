@@ -129,7 +129,7 @@ export class Player {
           );
           pathfinding.destination = route.newDestination;
         }
-        pathfinding.state = { kind: 'moving', path: route.path };
+        pathfinding.state = { kind: 'moving', path: route.path as any };
       }
     }
   }
