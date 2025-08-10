@@ -2,7 +2,7 @@ import { movementSpeed } from '../../data/characters';
 import { COLLISION_THRESHOLD } from '../constants';
 import { compressPath, distance, manhattanDistance, pointsEqual } from '../util/geometry';
 import { MinHeap } from '../util/minheap';
-import { Point, Vector } from '../util/types';
+import { Point, Vector, Path, PathComponent } from '../util/types';
 import { Game } from './game';
 import { GameId } from './ids';
 import { Player } from './player';
@@ -16,6 +16,96 @@ type PathCandidate = {
   cost: number;
   prev?: PathCandidate;
 };
+
+interface PathCacheKey {
+  startX: number;
+  startY: number;
+  destX: number;
+  destY: number;
+  worldStateHash: string;
+}
+
+interface CachedPathResult {
+  path: Path | null;
+  newDestination: Point | null;
+  timestamp: number;
+  hitCount: number;
+}
+
+class PathfindingCache {
+  private cache = new Map<string, CachedPathResult>();
+  private maxSize = 100;
+  private maxAge = 5000;
+
+  private keyToString(key: PathCacheKey): string {
+    return `${key.startX},${key.startY}->${key.destX},${key.destY}:${key.worldStateHash}`;
+  }
+
+  get(key: PathCacheKey): CachedPathResult | null {
+    const keyStr = this.keyToString(key);
+    const result = this.cache.get(keyStr);
+
+    if (!result) return null;
+
+    if (Date.now() - result.timestamp > this.maxAge) {
+      this.cache.delete(keyStr);
+      return null;
+    }
+
+    this.cache.delete(keyStr);
+    this.cache.set(keyStr, { ...result, hitCount: result.hitCount + 1 });
+
+    return result;
+  }
+
+  set(key: PathCacheKey, result: { path: Path | null; newDestination: Point | null }): void {
+    const keyStr = this.keyToString(key);
+
+    if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+
+    this.cache.set(keyStr, {
+      ...result,
+      timestamp: Date.now(),
+      hitCount: 0
+    });
+  }
+
+  getStats() {
+    const totalHits = Array.from(this.cache.values()).reduce((sum, item) => sum + item.hitCount, 0);
+    return {
+      size: this.cache.size,
+      totalHits,
+      hitRate: totalHits / (totalHits + this.cache.size)
+    };
+  }
+}
+
+class MinDistancesPool {
+  private pools: PathCandidate[][][] = [];
+
+  get(width: number, height: number): PathCandidate[][] {
+    let pool = this.pools.find(p => p.length >= height && p[0]?.length >= width);
+
+    if (!pool) {
+      pool = Array(height).fill(null).map(() => Array(width).fill(null));
+      this.pools.push(pool);
+    }
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        pool[y][x] = null;
+      }
+    }
+
+    return pool;
+  }
+}
+
+const pathfindingCache = new PathfindingCache();
+const minDistancesPool = new MinDistancesPool();
 
 export function stopPlayer(player: Player) {
   delete player.pathfinding;
@@ -55,7 +145,22 @@ export function movePlayer(
 }
 
 export function findRoute(game: Game, now: number, player: Player, destination: Point) {
-  const minDistances: PathCandidate[][] = [];
+  const worldStateHash = `${game.world.players.size}-${game.world.conversations.size}-${Math.floor(now / 1000)}`;
+  const cacheKey: PathCacheKey = {
+    startX: Math.floor(player.position.x * 100) / 100,
+    startY: Math.floor(player.position.y * 100) / 100,
+    destX: destination.x,
+    destY: destination.y,
+    worldStateHash
+  };
+
+  const cached = pathfindingCache.get(cacheKey);
+  if (cached) {
+    console.debug(`Pathfinding cache hit for ${player.id}`);
+    return { path: cached.path, newDestination: cached.newDestination };
+  }
+
+  const minDistances = minDistancesPool.get(game.worldMap.width, game.worldMap.height);
   const explore = (current: PathCandidate): Array<PathCandidate> => {
     const { x, y } = current.position;
     const neighbors = [];
@@ -158,7 +263,15 @@ export function findRoute(game: Game, now: number, player: Player, destination: 
   }
   densePath.reverse();
 
-  return { path: compressPath(densePath), newDestination };
+  const result = { path: compressPath(densePath), newDestination };
+  pathfindingCache.set(cacheKey, result);
+
+  if (Math.random() < 0.01) {
+    const stats = pathfindingCache.getStats();
+    console.debug(`Pathfinding cache stats:`, stats);
+  }
+
+  return result;
 }
 
 export function blocked(game: Game, now: number, pos: Point, playerId?: GameId<'players'>) {
