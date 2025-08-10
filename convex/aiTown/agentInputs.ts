@@ -155,4 +155,44 @@ export const agentInputs = {
       return { agentId };
     },
   }),
+
+  createDigitalTwin: inputHandler({
+    args: {
+      playerId: v.id('players'),
+      identity: v.string(),
+      plan: v.string(),
+    },
+    handler: (game, now, args) => {
+      const playerId = parseGameId('players', args.playerId);
+      const player = game.world.players.get(playerId);
+      if (!player) {
+        throw new Error(`Player ${playerId} not found`);
+      }
+      
+      // Remove human identifier to convert human player to AI
+      delete player.human;
+      
+      const agentId = game.allocId('agents');
+      game.world.agents.set(
+        agentId,
+        new Agent({
+          id: agentId,
+          playerId: playerId,
+          inProgressOperation: undefined,
+          lastConversation: undefined,
+          lastInviteAttempt: undefined,
+          toRemember: undefined,
+        }),
+      );
+      game.agentDescriptions.set(
+        agentId,
+        new AgentDescription({
+          agentId: agentId,
+          identity: args.identity,
+          plan: args.plan,
+        }),
+      );
+      return { agentId, playerId };
+    },
+  }),
 };

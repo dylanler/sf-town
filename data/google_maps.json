@@ -1,0 +1,764 @@
+{
+  "generated_at": "2025-08-09T15:40:10-07:00",
+  "places": [
+    {
+      "name": "Boulevard",
+      "category": "American fine dining",
+      "address": "1 Mission St, San Francisco, CA 94105",
+      "description": "Long-running waterfront spot known for refined Californian plates and special-occasion vibes.",
+      "place_id": "boulevard_sf",
+      "reviews": [
+        {
+          "author": "A. Patel",
+          "rating": 5,
+          "relative_date": "3 days ago",
+          "text": "Prix fixe was balanced and memorable. Bay Bridge view = bonus."
+        },
+        {
+          "author": "M. Nguyen",
+          "rating": 4,
+          "relative_date": "4 days ago",
+          "text": "Service polished; mains a touch salty but dessert stellar."
+        },
+        {
+          "author": "S. Romero",
+          "rating": 5,
+          "relative_date": "6 days ago",
+          "text": "Anniversary dinner perfection. Sommelier nailed the pairing."
+        },
+        {
+          "author": "K. Li",
+          "rating": 4,
+          "relative_date": "1 week ago",
+          "text": "Loved the scallops; noise level moderate for a Saturday."
+        },
+        {
+          "author": "J. Rivera",
+          "rating": 5,
+          "relative_date": "1 week ago",
+          "text": "Classic for a reason—impeccable sauces and pacing."
+        },
+        {
+          "author": "L. Chen",
+          "rating": 5,
+          "relative_date": "8 days ago",
+          "text": "Bar seating great for solo dining. Martini done right."
+        },
+        {
+          "author": "B. Thomas",
+          "rating": 3,
+          "relative_date": "9 days ago",
+          "text": "Good but pricey; expected larger portions at this tier."
+        },
+        {
+          "author": "E. Moore",
+          "rating": 5,
+          "relative_date": "10 days ago",
+          "text": "Short rib special was melt-in-mouth amazing."
+        },
+        {
+          "author": "R. Patel",
+          "rating": 4,
+          "relative_date": "11 days ago",
+          "text": "Warm hospitality. Bread service addictive."
+        },
+        {
+          "author": "C. Brooks",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Tasting menu flowed beautifully—zero missteps."
+        }
+      ]
+    },
+    {
+      "name": "Waterbar Restaurant",
+      "category": "Seafood",
+      "address": "399 The Embarcadero, San Francisco, CA 94105",
+      "description": "Seafood and raw bar with sweeping Bay Bridge views and a lively patio.",
+      "place_id": "waterbar_sf",
+      "reviews": [
+        {
+          "author": "J. Kim",
+          "rating": 5,
+          "relative_date": "2 days ago",
+          "text": "Oysters ultra-fresh; sunset here is unbeatable."
+        },
+        {
+          "author": "H. Garcia",
+          "rating": 4,
+          "relative_date": "3 days ago",
+          "text": "Crab cakes excellent; wait for patio worth it."
+        },
+        {
+          "author": "P. Singh",
+          "rating": 5,
+          "relative_date": "5 days ago",
+          "text": "Service quick despite a packed house."
+        },
+        {
+          "author": "M. Allen",
+          "rating": 3,
+          "relative_date": "6 days ago",
+          "text": "Great view, mains a bit underseasoned today."
+        },
+        {
+          "author": "T. Evans",
+          "rating": 5,
+          "relative_date": "1 week ago",
+          "text": "Cioppino packed with seafood—huge portion."
+        },
+        {
+          "author": "Z. Zhao",
+          "rating": 4,
+          "relative_date": "8 days ago",
+          "text": "Cocktails strong; noise high indoors."
+        },
+        {
+          "author": "D. Ortiz",
+          "rating": 5,
+          "relative_date": "9 days ago",
+          "text": "Best oysters I’ve had in SF so far."
+        },
+        {
+          "author": "I. Khan",
+          "rating": 4,
+          "relative_date": "10 days ago",
+          "text": "Pricey but you’re paying for the setting."
+        },
+        {
+          "author": "S. Grant",
+          "rating": 5,
+          "relative_date": "11 days ago",
+          "text": "Staff accommodated gluten-free seamlessly."
+        },
+        {
+          "author": "V. Rossi",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Birthday dinner home run—thank you team!"
+        }
+      ]
+    },
+    {
+      "name": "Red's Java House",
+      "category": "Diner",
+      "address": "Pier 30–32, San Francisco, CA 94105",
+      "description": "Old-school waterfront shack for burgers, beers, and no-frills charm.",
+      "place_id": "reds_java_sf",
+      "reviews": [
+        {
+          "author": "C. Miller",
+          "rating": 5,
+          "relative_date": "1 day ago",
+          "text": "Greasy in the best way. Burger + view = bliss."
+        },
+        {
+          "author": "F. Young",
+          "rating": 4,
+          "relative_date": "3 days ago",
+          "text": "Cashier friendly; fries crispy perfection."
+        },
+        {
+          "author": "R. Wang",
+          "rating": 4,
+          "relative_date": "4 days ago",
+          "text": "Patio is windy—bring a jacket."
+        },
+        {
+          "author": "A. Lopez",
+          "rating": 5,
+          "relative_date": "6 days ago",
+          "text": "Classic spot I bring all out-of-towners to."
+        },
+        {
+          "author": "N. Baker",
+          "rating": 3,
+          "relative_date": "1 week ago",
+          "text": "Lines at lunch; food comes out fast though."
+        },
+        {
+          "author": "G. Silva",
+          "rating": 5,
+          "relative_date": "8 days ago",
+          "text": "Bacon cheeseburger hit the spot after a walk."
+        },
+        {
+          "author": "E. Park",
+          "rating": 4,
+          "relative_date": "9 days ago",
+          "text": "Great value for the area."
+        },
+        {
+          "author": "Y. Ito",
+          "rating": 5,
+          "relative_date": "10 days ago",
+          "text": "Laid-back, old SF vibes—love it."
+        },
+        {
+          "author": "M. Diaz",
+          "rating": 4,
+          "relative_date": "11 days ago",
+          "text": "Limited menu but they nail it."
+        },
+        {
+          "author": "H. Patel",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Dogs welcome outside; staff sweet with our pup."
+        }
+      ]
+    },
+    {
+      "name": "Wayfare Tavern",
+      "category": "American",
+      "address": "201 Pine St, San Francisco, CA 94111",
+      "description": "Tyler Florence’s polished tavern—comfort classics and a famed fried chicken.",
+      "place_id": "wayfare_tavern_sf",
+      "reviews": [
+        {
+          "author": "J. Alvarez",
+          "rating": 5,
+          "relative_date": "2 days ago",
+          "text": "Fried chicken crispy and juicy—lives up to hype."
+        },
+        {
+          "author": "S. Mehta",
+          "rating": 4,
+          "relative_date": "3 days ago",
+          "text": "Popovers addictive; cocktails balanced."
+        },
+        {
+          "author": "W. Carter",
+          "rating": 4,
+          "relative_date": "5 days ago",
+          "text": "Service attentive; tables a bit tight."
+        },
+        {
+          "author": "L. Brown",
+          "rating": 5,
+          "relative_date": "6 days ago",
+          "text": "Duck confit special was outstanding."
+        },
+        {
+          "author": "T. Lee",
+          "rating": 3,
+          "relative_date": "1 week ago",
+          "text": "Good flavors, long wait for mains."
+        },
+        {
+          "author": "O. Novak",
+          "rating": 5,
+          "relative_date": "8 days ago",
+          "text": "Great for business dinners—professional staff."
+        },
+        {
+          "author": "R. Chen",
+          "rating": 4,
+          "relative_date": "9 days ago",
+          "text": "Warm ambiance. Save room for dessert."
+        },
+        {
+          "author": "A. Singh",
+          "rating": 5,
+          "relative_date": "10 days ago",
+          "text": "Bartender knows their whiskey—A+."
+        },
+        {
+          "author": "P. Jones",
+          "rating": 4,
+          "relative_date": "11 days ago",
+          "text": "Solid staples, slightly loud upstairs."
+        },
+        {
+          "author": "M. Kravitz",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Weekend brunch was a treat."
+        }
+      ]
+    },
+    {
+      "name": "Vida Cantina SF",
+      "category": "Vegan Mexican",
+      "address": "56 Belden Pl, San Francisco, CA 94104",
+      "description": "Plant-based takes on Mexican staples in a cozy Belden Place alley setting.",
+      "place_id": "vida_cantina_sf",
+      "reviews": [
+        {
+          "author": "K. Gomez",
+          "rating": 5,
+          "relative_date": "1 day ago",
+          "text": "Al pastor tacos (vegan!) were shockingly good."
+        },
+        {
+          "author": "R. Shah",
+          "rating": 5,
+          "relative_date": "3 days ago",
+          "text": "Salsas bright, housemade tortillas terrific."
+        },
+        {
+          "author": "E. Martin",
+          "rating": 4,
+          "relative_date": "4 days ago",
+          "text": "Portions fair; patio seating charming."
+        },
+        {
+          "author": "D. Li",
+          "rating": 5,
+          "relative_date": "6 days ago",
+          "text": "Chile relleno a must—even non-veg friends loved it."
+        },
+        {
+          "author": "S. Patel",
+          "rating": 4,
+          "relative_date": "1 week ago",
+          "text": "Service kind; a tad slow during rush."
+        },
+        {
+          "author": "J. White",
+          "rating": 5,
+          "relative_date": "8 days ago",
+          "text": "Top vegan spot downtown, hands down."
+        },
+        {
+          "author": "B. Rossi",
+          "rating": 4,
+          "relative_date": "9 days ago",
+          "text": "Great margaritas; music a little loud."
+        },
+        {
+          "author": "N. Ali",
+          "rating": 5,
+          "relative_date": "10 days ago",
+          "text": "Creative menu without trying too hard."
+        },
+        {
+          "author": "I. Flores",
+          "rating": 5,
+          "relative_date": "11 days ago",
+          "text": "Empanadas crisp and flavorful."
+        },
+        {
+          "author": "G. Tran",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Staff accommodated nut allergy perfectly."
+        }
+      ]
+    },
+    {
+      "name": "Campton Place Bar & Bistro",
+      "category": "Cal-Indian",
+      "address": "340 Stockton St, San Francisco, CA 94108",
+      "description": "Elegant bistro blending Californian produce with South-Indian spices; cocktail forward.",
+      "place_id": "campton_place_sf",
+      "reviews": [
+        {
+          "author": "V. Kumar",
+          "rating": 5,
+          "relative_date": "2 days ago",
+          "text": "Spice Route tasting menu blew us away."
+        },
+        {
+          "author": "Q. Lin",
+          "rating": 4,
+          "relative_date": "3 days ago",
+          "text": "Beautiful plating; loved the dosa starter."
+        },
+        {
+          "author": "H. Reed",
+          "rating": 5,
+          "relative_date": "5 days ago",
+          "text": "Service thoughtful, not fussy."
+        },
+        {
+          "author": "M. Silva",
+          "rating": 4,
+          "relative_date": "6 days ago",
+          "text": "Cocktail program is serious—try the shrub."
+        },
+        {
+          "author": "A. Park",
+          "rating": 3,
+          "relative_date": "1 week ago",
+          "text": "Portions petite; flavors refined."
+        },
+        {
+          "author": "C. Nguyen",
+          "rating": 5,
+          "relative_date": "8 days ago",
+          "text": "Perfect date night spot."
+        },
+        {
+          "author": "L. Ortiz",
+          "rating": 4,
+          "relative_date": "9 days ago",
+          "text": "Excellent bread service, warm spices."
+        },
+        {
+          "author": "T. Brown",
+          "rating": 5,
+          "relative_date": "10 days ago",
+          "text": "Lamb course was tender and aromatic."
+        },
+        {
+          "author": "S. Wang",
+          "rating": 4,
+          "relative_date": "11 days ago",
+          "text": "Dining room quiet; great for conversation."
+        },
+        {
+          "author": "J. Fox",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Dessert flight worth it."
+        }
+      ]
+    },
+    {
+      "name": "ONE65 San Francisco",
+      "category": "French (patisserie/bistro/fine dining)",
+      "address": "165 O'Farrell St, San Francisco, CA 94102",
+      "description": "Modern French complex from Chef Claude Le Tohic—pastries to Michelin-level tasting.",
+      "place_id": "one65_sf",
+      "reviews": [
+        {
+          "author": "A. Morgan",
+          "rating": 5,
+          "relative_date": "2 days ago",
+          "text": "Croissants flaky; upstairs bistro solid lunch."
+        },
+        {
+          "author": "P. Gupta",
+          "rating": 5,
+          "relative_date": "3 days ago",
+          "text": "Chocolate sphere dessert is art."
+        },
+        {
+          "author": "N. Rossi",
+          "rating": 4,
+          "relative_date": "5 days ago",
+          "text": "Espresso on point; a little crowded mornings."
+        },
+        {
+          "author": "J. Lee",
+          "rating": 5,
+          "relative_date": "6 days ago",
+          "text": "Service gracious at Elements."
+        },
+        {
+          "author": "R. Diaz",
+          "rating": 4,
+          "relative_date": "1 week ago",
+          "text": "Prix fixe great value midweek."
+        },
+        {
+          "author": "G. Yu",
+          "rating": 5,
+          "relative_date": "8 days ago",
+          "text": "Macarons textbook perfect."
+        },
+        {
+          "author": "E. Ahmed",
+          "rating": 4,
+          "relative_date": "9 days ago",
+          "text": "Line moves fast; plenty of seating."
+        },
+        {
+          "author": "S. Patel",
+          "rating": 5,
+          "relative_date": "10 days ago",
+          "text": "Escargot memorable; wines reasonably priced."
+        },
+        {
+          "author": "H. Kim",
+          "rating": 4,
+          "relative_date": "11 days ago",
+          "text": "Noise high at peak hours."
+        },
+        {
+          "author": "D. Green",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Top pastry spot downtown."
+        }
+      ]
+    },
+    {
+      "name": "The Grove - Yerba Buena",
+      "category": "Cafe",
+      "address": "690 Mission St, San Francisco, CA 94105",
+      "description": "Casual all-day cafe—large portions, comfort classics, and communal seating.",
+      "place_id": "grove_yb_sf",
+      "reviews": [
+        {
+          "author": "R. Allen",
+          "rating": 5,
+          "relative_date": "1 day ago",
+          "text": "Chicken pot pie and a latte = cozy lunch."
+        },
+        {
+          "author": "M. Zhou",
+          "rating": 4,
+          "relative_date": "3 days ago",
+          "text": "Huge salads; quick counter service."
+        },
+        {
+          "author": "K. Gray",
+          "rating": 4,
+          "relative_date": "4 days ago",
+          "text": "Good for groups; can be loud."
+        },
+        {
+          "author": "L. Santos",
+          "rating": 5,
+          "relative_date": "6 days ago",
+          "text": "Friendly staff; power outlets everywhere."
+        },
+        {
+          "author": "O. Perez",
+          "rating": 3,
+          "relative_date": "1 week ago",
+          "text": "Pricey but portions justify it."
+        },
+        {
+          "author": "S. Iyer",
+          "rating": 5,
+          "relative_date": "8 days ago",
+          "text": "Great spot to camp with a laptop."
+        },
+        {
+          "author": "J. Novak",
+          "rating": 4,
+          "relative_date": "9 days ago",
+          "text": "French toast was a sleeper hit."
+        },
+        {
+          "author": "T. Hall",
+          "rating": 5,
+          "relative_date": "10 days ago",
+          "text": "Fast Wi-Fi and sunny patio."
+        },
+        {
+          "author": "B. Wu",
+          "rating": 4,
+          "relative_date": "11 days ago",
+          "text": "Lines move fast even at brunch."
+        },
+        {
+          "author": "C. Ortiz",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Staff handled our big party smoothly."
+        }
+      ]
+    },
+    {
+      "name": "The Harlequin",
+      "category": "Bar / Tavern",
+      "address": "68 4th St, San Francisco, CA 94103",
+      "description": "Vintage-chic cocktail tavern with hearty pub fare near Yerba Buena.",
+      "place_id": "harlequin_sf",
+      "reviews": [
+        {
+          "author": "E. Lopez",
+          "rating": 5,
+          "relative_date": "2 days ago",
+          "text": "House old fashioned is fantastic."
+        },
+        {
+          "author": "G. Patel",
+          "rating": 4,
+          "relative_date": "4 days ago",
+          "text": "Great fries; seating fills fast after work."
+        },
+        {
+          "author": "R. Wilson",
+          "rating": 4,
+          "relative_date": "5 days ago",
+          "text": "Bartenders are pros, friendly vibe."
+        },
+        {
+          "author": "H. Chen",
+          "rating": 5,
+          "relative_date": "6 days ago",
+          "text": "Loved the burger; perfect medium."
+        },
+        {
+          "author": "P. Brown",
+          "rating": 3,
+          "relative_date": "1 week ago",
+          "text": "Music a bit loud Thursday night."
+        },
+        {
+          "author": "N. Ahmed",
+          "rating": 5,
+          "relative_date": "8 days ago",
+          "text": "Good happy hour, solid pours."
+        },
+        {
+          "author": "I. Garcia",
+          "rating": 4,
+          "relative_date": "9 days ago",
+          "text": "Cozy booths; quick service."
+        },
+        {
+          "author": "S. Park",
+          "rating": 5,
+          "relative_date": "10 days ago",
+          "text": "Cocktail list creative without being fussy."
+        },
+        {
+          "author": "K. Rivera",
+          "rating": 4,
+          "relative_date": "11 days ago",
+          "text": "Crowded but fun scene."
+        },
+        {
+          "author": "M. Stone",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Would return for the wings alone."
+        }
+      ]
+    },
+    {
+      "name": "Tycoon Kitchen",
+      "category": "Thai / Quick-serve",
+      "address": "47 Minna St (Salesforce Transit Center), San Francisco, CA 94105",
+      "description": "Casual Thai-leaning spot known for hefty portions and fast service.",
+      "place_id": "tycoon_kitchen_sf",
+      "reviews": [
+        {
+          "author": "Y. Lin",
+          "rating": 5,
+          "relative_date": "1 day ago",
+          "text": "Pad see ew smoky and satisfying."
+        },
+        {
+          "author": "C. Patel",
+          "rating": 4,
+          "relative_date": "3 days ago",
+          "text": "Green curry spicy level was perfect."
+        },
+        {
+          "author": "A. Reed",
+          "rating": 5,
+          "relative_date": "4 days ago",
+          "text": "Huge portions for downtown—great value."
+        },
+        {
+          "author": "F. Zhao",
+          "rating": 4,
+          "relative_date": "6 days ago",
+          "text": "Quick lunch turnaround; limited seating."
+        },
+        {
+          "author": "M. Ortiz",
+          "rating": 5,
+          "relative_date": "1 week ago",
+          "text": "Tofu texture excellent; travels well."
+        },
+        {
+          "author": "D. Wu",
+          "rating": 4,
+          "relative_date": "8 days ago",
+          "text": "Fried rice a sleeper hit."
+        },
+        {
+          "author": "S. Green",
+          "rating": 5,
+          "relative_date": "9 days ago",
+          "text": "Friendly staff; online pickup smooth."
+        },
+        {
+          "author": "R. Singh",
+          "rating": 4,
+          "relative_date": "10 days ago",
+          "text": "Good heat without overpowering."
+        },
+        {
+          "author": "K. Adams",
+          "rating": 5,
+          "relative_date": "11 days ago",
+          "text": "Perfect desk lunch spot near Salesforce Park."
+        },
+        {
+          "author": "J. Park",
+          "rating": 4,
+          "relative_date": "12 days ago",
+          "text": "Cashier recommended pad thai—solid choice."
+        }
+      ]
+    },
+    {
+      "name": "Salesforce Park",
+      "category": "Urban park",
+      "address": "425 Mission St (roof of Salesforce Transit Center), San Francisco, CA 94105",
+      "description": "Elevated public park with gardens, walking paths, and occasional events.",
+      "place_id": "salesforce_park_sf",
+      "reviews": [
+        {
+          "author": "A. Vega",
+          "rating": 5,
+          "relative_date": "2 days ago",
+          "text": "Peaceful green escape above the city bustle."
+        },
+        {
+          "author": "L. Kumar",
+          "rating": 5,
+          "relative_date": "3 days ago",
+          "text": "Kids loved the fountain art sequence."
+        },
+        {
+          "author": "M. Flores",
+          "rating": 4,
+          "relative_date": "5 days ago",
+          "text": "Great for lunch breaks; limited shade at noon."
+        },
+        {
+          "author": "T. Zhou",
+          "rating": 5,
+          "relative_date": "6 days ago",
+          "text": "Yoga class on the lawn was lovely."
+        },
+        {
+          "author": "C. Harris",
+          "rating": 4,
+          "relative_date": "1 week ago",
+          "text": "Elevator access can be slow at peak times."
+        },
+        {
+          "author": "E. Rossi",
+          "rating": 5,
+          "relative_date": "8 days ago",
+          "text": "Gardens are well kept and diverse."
+        },
+        {
+          "author": "B. Hall",
+          "rating": 4,
+          "relative_date": "9 days ago",
+          "text": "Plenty of benches; bring a jacket."
+        },
+        {
+          "author": "S. Ahmed",
+          "rating": 5,
+          "relative_date": "10 days ago",
+          "text": "Nice walking loop; skyline views."
+        },
+        {
+          "author": "N. Lee",
+          "rating": 4,
+          "relative_date": "11 days ago",
+          "text": "Crowded at lunch, quiet evenings."
+        },
+        {
+          "author": "G. Chen",
+          "rating": 5,
+          "relative_date": "12 days ago",
+          "text": "Unexpected oasis—highly recommend."
+        }
+      ]
+    }
+  ]
+}

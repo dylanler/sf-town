@@ -8,6 +8,9 @@ import chatsImg from '../assets/ui/chats.svg';
 // import { Authenticated, Unauthenticated } from 'convex/react';
 // import LoginButton from './components/buttons/LoginButton.tsx';
 import { useState } from 'react';
+import { useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
+import POIImport from './components/POIImport';
 import ReactModal from 'react-modal';
 import MusicButton from './components/buttons/MusicButton.tsx';
 import Button from './components/buttons/Button.tsx';
@@ -20,10 +23,12 @@ import ConversationsModal from './components/ConversationsModal.tsx';
 
 export default function Home() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
-  const [playerName, setPlayerName] = useState('Me');
+  const [playerName, setPlayerName] = useState('Dylan');
   const [playerCharacter, setPlayerCharacter] = useState('f1');
-  const [playerDescription, setPlayerDescription] = useState('Me is a human player');
+  const [playerDescription, setPlayerDescription] = useState('25 years old, I love hackathons');
   const [conversationsOpen, setConversationsOpen] = useState(false);
+  const defaultWorld = useQuery(api.world.defaultWorldStatus);
+  const worldId = defaultWorld?.worldId;
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-between font-body game-background">
       
@@ -101,6 +106,13 @@ export default function Home() {
             setDescription={setPlayerDescription}
           />
         </div>
+
+        {/* Import POIs */}
+        {worldId && (
+          <div className="w-full flex flex-col items-center gap-3">
+            <POIImport worldId={worldId} />
+          </div>
+        )}
 
         <Game />
 

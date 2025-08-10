@@ -176,6 +176,37 @@ export const leaveWorld = mutation({
   },
 });
 
+export const createDigitalTwin = mutation({
+  args: {
+    worldId: v.id('worlds'),
+    name: v.string(),
+    character: v.string(),
+    description: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const world = await ctx.db.get(args.worldId);
+    if (!world) {
+      throw new ConvexError(`Invalid world ID: ${args.worldId}`);
+    }
+    
+    // Find the human player
+    const existingPlayer = world.players.find((p) => p.human === DEFAULT_NAME);
+    if (!existingPlayer) {
+      throw new ConvexError(`No human player found in the world`);
+    }
+
+    // Create the digital twin identity and plan based on player description
+    const identity = `${args.name} is a digital twin of a human player. ${args.description}`;
+    const plan = `I am a digital twin representing ${args.name}. I should behave like a human would, being social and engaging in conversations while exploring the town. I will act according to my personality: ${args.description}`;
+
+    return await insertInput(ctx, world._id, 'createDigitalTwin', {
+      playerId: existingPlayer.id as any,
+      identity,
+      plan,
+    });
+  },
+});
+
 export const sendWorldInput = mutation({
   args: {
     engineId: v.id('engines'),
@@ -212,6 +243,66 @@ export const worldState = query({
       throw new Error(`Invalid engine ID: ${worldStatus.engineId}`);
     }
     return { world, engine };
+  },
+});
+
+export const listWorlds = query({
+  args: {},
+  handler: async (ctx) => {
+    const [worlds, statuses] = await Promise.all([
+      ctx.db.query('worlds').collect(),
+      ctx.db.query('worldStatus').collect(),
+    ]);
+
+    const worldById = new Map(worlds.map((w) => [w._id, w] as const));
+    return statuses
+      .sort((a, b) => b.lastViewed - a.lastViewed)
+      .map((s) => {
+        const w = worldById.get(s.worldId)!;
+        return {
+          worldId: s.worldId,
+          status: s.status,
+          isDefault: s.isDefault,
+          engineId: s.engineId,
+          lastViewed: s.lastViewed,
+          counts: {
+            players: w.players.length,
+            agents: w.agents.length,
+            conversations: w.conversations.length,
+          },
+        };
+      });
+  },
+});
+
+export const setDefaultWorld = mutation({
+  args: {
+    worldId: v.id('worlds'),
+  },
+  handler: async (ctx, args) => {
+    // Ensure the world exists
+    const world = await ctx.db.get(args.worldId);
+    if (!world) throw new Error(`Invalid world ID: ${args.worldId}`);
+
+    // Clear previous default
+    const allStatuses = await ctx.db.query('worldStatus').collect();
+    for (const s of allStatuses) {
+      if (s.isDefault) {
+        await ctx.db.patch(s._id, { isDefault: false });
+      }
+    }
+
+    // Set target as default and running
+    const status = await ctx.db
+      .query('worldStatus')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+      .unique();
+    if (!status) throw new Error(`Missing worldStatus for ${args.worldId}`);
+
+    const now = Date.now();
+    await ctx.db.patch(status._id, { isDefault: true, status: 'running', lastViewed: now });
+    await startEngine(ctx, args.worldId);
+    return { worldId: args.worldId, engineId: status.engineId };
   },
 });
 

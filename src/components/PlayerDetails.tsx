@@ -9,6 +9,8 @@ import { useSendInput } from '../hooks/sendInput';
 import { Player } from '../../convex/aiTown/player';
 import { GameId } from '../../convex/aiTown/ids';
 import { ServerGame } from '../hooks/serverGame';
+import { useQuery as useConvexQuery } from 'convex/react';
+import { api as convexApi } from '../../convex/_generated/api';
 
 export default function PlayerDetails({
   worldId,
@@ -233,6 +235,8 @@ export default function PlayerDetails({
           )}
         </p>
       </div>
+      {/* POI action history */}
+      <PoiActionsPanel worldId={worldId} />
       {!isMe && playerConversation && playerStatus?.kind === 'participating' && (
         <Messages
           worldId={worldId}
@@ -259,5 +263,29 @@ export default function PlayerDetails({
         </>
       )}
     </>
+  );
+}
+
+function PoiActionsPanel({ worldId }: { worldId: Id<'worlds'> }) {
+  const actions = useConvexQuery(convexApi.aiTown.poi.listPoiActions, { worldId, limit: 20 }) || [];
+  if (!actions.length) {
+    return (
+      <div className="box flex-grow mt-2">
+        <h2 className="bg-brown-700 text-base sm:text-lg text-center">POI actions</h2>
+        <div className="p-2 text-sm opacity-70">No actions yet.</div>
+      </div>
+    );
+  }
+  return (
+    <div className="box flex-grow mt-2">
+      <h2 className="bg-brown-700 text-base sm:text-lg text-center">POI actions</h2>
+      <ul className="p-2 text-sm space-y-1">
+        {actions.map((a) => (
+          <li key={a._id} className="opacity-90">
+            {new Date(a.timestamp).toLocaleTimeString()}: {a.text}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

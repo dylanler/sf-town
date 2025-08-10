@@ -321,6 +321,14 @@ all of your data.
    - Change how often to generate new music at `convex/crons.ts` by modifying the
      `generate new background music` job
 
+### Import Google Maps-style POIs and agent interactions
+
+- A button on `/ai-town` lets you import POIs from `data/google_maps.json`.
+- You can set coordinates and a radius in miles (defaults to Montgomery St BART in SF and 5 miles).
+- Imported POIs are stored in Convex tables `pointsOfInterest` and agent interactions are logged in `poiActions`.
+- Agents occasionally “interact” with a POI; they produce an internal action text saved to `poiActions`.
+- The right sidebar shows a compact “POI actions” feed.
+
 ## Commands to run / test / debug
 
 **To stop the back end, in case of too much activity**
@@ -342,6 +350,14 @@ npx convex run testing:resume
 ```bash
 npx convex run testing:kick
 ```
+
+**To list all worlds**
+
+```bash
+npx convex run world:listWorlds | cat
+```
+
+This prints each world's id, engine status, whether it's the default world, last viewed time, and simple counts.
 
 **To archive the world**
 

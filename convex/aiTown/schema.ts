@@ -7,7 +7,7 @@ import { serializedAgentDescription } from './agentDescription';
 import { serializedWorld } from './world';
 import { serializedWorldMap } from './worldMap';
 import { serializedConversation } from './conversation';
-import { conversationId, playerId } from './ids';
+import { conversationId, playerId, agentId } from './ids';
 
 export const aiTownTables = {
   // This table has a single document that stores all players, conversations, and agents. This
@@ -63,6 +63,35 @@ export const aiTownTables = {
     'worldId',
     'id',
   ]),
+
+  // Points of interest imported from external sources (e.g., Google Maps JSON)
+  pointsOfInterest: defineTable({
+    worldId: v.id('worlds'),
+    placeId: v.string(),
+    name: v.string(),
+    category: v.optional(v.string()),
+    address: v.optional(v.string()),
+    description: v.optional(v.string()),
+    // Tile coordinates where the POI marker appears
+    tileX: v.number(),
+    tileY: v.number(),
+  })
+    .index('worldId', ['worldId'])
+    .index('world_place', ['worldId', 'placeId']),
+
+  // Action logs of agents interacting with POIs (internal thoughts / actions)
+  poiActions: defineTable({
+    worldId: v.id('worlds'),
+    playerId,
+    agentId,
+    poiId: v.id('pointsOfInterest'),
+    text: v.string(),
+    timestamp: v.number(),
+  })
+    .index('world_time', ['worldId', 'timestamp'])
+    .index('world_agent_time', ['worldId', 'agentId', 'timestamp'])
+    .index('world_poi_time', ['worldId', 'poiId', 'timestamp'])
+    .index('world_player_time', ['worldId', 'playerId', 'timestamp']),
 
   // The agent layer wants to know what the last (completed) conversation was between two players,
   // so this table represents a labelled graph indicating which players have talked to each other.

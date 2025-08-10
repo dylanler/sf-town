@@ -171,23 +171,51 @@ export const agentDoSomething = internalAction({
         });
         return;
       } else {
-        // TODO: have LLM choose the activity & emoji
-        const activity = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
-        await sleep(Math.random() * 1000);
-        await sendInputWithRetry(ctx, {
-          worldId: args.worldId,
-          name: 'finishDoSomething',
-          args: {
-            operationId: args.operationId,
+        // Occasionally interact with a POI instead of a random activity
+        const pois = await ctx.runQuery(api.aiTown.poi.listPointsOfInterest, { worldId: args.worldId });
+        if (pois.length > 0 && Math.random() < 0.33) {
+          const poi = pois[Math.floor(Math.random() * pois.length)];
+          // Fire-and-forget internal thought/action log
+          await ctx.runAction(internal.aiTown.poi.agentInteractWithPoi, {
+            worldId: args.worldId,
             agentId: agent.id,
-            activity: {
-              description: activity.description,
-              emoji: activity.emoji,
-              until: Date.now() + activity.duration,
+            playerId: player.id,
+            poiId: poi._id,
+          });
+          await sleep(Math.random() * 300);
+          await sendInputWithRetry(ctx, {
+            worldId: args.worldId,
+            name: 'finishDoSomething',
+            args: {
+              operationId: args.operationId,
+              agentId: agent.id,
+              activity: {
+                description: `Thinking about ${poi.name}`,
+                emoji: '🧭',
+                until: Date.now() + 2000,
+              },
             },
-          },
-        });
-        return;
+          });
+          return;
+        } else {
+          // TODO: have LLM choose the activity & emoji
+          const activity = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
+          await sleep(Math.random() * 1000);
+          await sendInputWithRetry(ctx, {
+            worldId: args.worldId,
+            name: 'finishDoSomething',
+            args: {
+              operationId: args.operationId,
+              agentId: agent.id,
+              activity: {
+                description: activity.description,
+                emoji: activity.emoji,
+                until: Date.now() + activity.duration,
+              },
+            },
+          });
+          return;
+        }
       }
     }
     const invitee =
