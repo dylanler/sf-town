@@ -14,6 +14,7 @@ import { DebugPath } from './DebugPath.tsx';
 import { PositionIndicator } from './PositionIndicator.tsx';
 import { SHOW_DEBUG_UI } from './Game.tsx';
 import { ServerGame } from '../hooks/serverGame.ts';
+import POIMarker from './POIMarker';
 
 export const PixiGame = (props: {
   worldId: Id<'worlds'>;
@@ -81,6 +82,7 @@ export const PixiGame = (props: {
   };
   const { width, height, tileDim } = props.game.worldMap;
   const players = [...props.game.world.players.values()];
+  const pois = (useQuery(api.aiTown.poi.listPointsOfInterest, { worldId: props.worldId }) ?? []) as Array<{ _id: string; name: string; tileX?: number; tileY?: number; category?: string; address?: string; description?: string }>;
 
   // Zoom on the user’s avatar when it is created
   useEffect(() => {
@@ -107,6 +109,17 @@ export const PixiGame = (props: {
         onpointerup={onMapPointerUp}
         onpointerdown={onMapPointerDown}
       />
+      {/* POI markers */}
+      {pois
+        .filter((poi) => poi.tileX !== undefined && poi.tileY !== undefined)
+        .map((poi) => (
+          <POIMarker
+            key={`poi-${poi._id}`}
+            x={(poi.tileX as number) * tileDim + tileDim / 2}
+            y={(poi.tileY as number) * tileDim + tileDim / 2}
+            onClick={() => props.setSelectedElement({ kind: 'poi', id: poi._id })}
+          />
+        ))}
       {players.map(
         (p) =>
           // Only show the path for the human player in non-debug mode.

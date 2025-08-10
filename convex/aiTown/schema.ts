@@ -72,9 +72,9 @@ export const aiTownTables = {
     category: v.optional(v.string()),
     address: v.optional(v.string()),
     description: v.optional(v.string()),
-    // Tile coordinates where the POI marker appears
-    tileX: v.number(),
-    tileY: v.number(),
+    // Tile coordinates where the POI marker appears (optional during migration)
+    tileX: v.optional(v.number()),
+    tileY: v.optional(v.number()),
   })
     .index('worldId', ['worldId'])
     .index('world_place', ['worldId', 'placeId']),
@@ -87,6 +87,7 @@ export const aiTownTables = {
     poiId: v.id('pointsOfInterest'),
     text: v.string(),
     timestamp: v.number(),
+    actor: v.optional(v.union(v.literal('agent'), v.literal('poi'))),
   })
     .index('world_time', ['worldId', 'timestamp'])
     .index('world_agent_time', ['worldId', 'agentId', 'timestamp'])

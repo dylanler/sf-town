@@ -16,10 +16,10 @@ export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
 export default function Game() {
   const convex = useConvex();
-  const [selectedElement, setSelectedElement] = useState<{
-    kind: 'player';
-    id: GameId<'players'>;
-  }>();
+  const [selectedElement, setSelectedElement] = useState<
+    | { kind: 'player'; id: GameId<'players'> }
+    | { kind: 'poi'; id: string }
+  >();
   const [gameWrapperRef, { width, height }] = useElementSize();
 
   const worldStatus = useQuery(api.world.defaultWorldStatus);
@@ -74,7 +74,7 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
             worldId={worldId}
             engineId={engineId}
             game={game}
-            playerId={selectedElement?.id}
+            selected={selectedElement}
             setSelectedElement={setSelectedElement}
             scrollViewRef={scrollViewRef}
           />

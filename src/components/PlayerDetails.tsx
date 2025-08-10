@@ -16,14 +16,14 @@ export default function PlayerDetails({
   worldId,
   engineId,
   game,
-  playerId,
+  selected,
   setSelectedElement,
   scrollViewRef,
 }: {
   worldId: Id<'worlds'>;
   engineId: Id<'engines'>;
   game: ServerGame;
-  playerId?: GameId<'players'>;
+  selected?: { kind: 'player'; id: GameId<'players'> } | { kind: 'poi'; id: string };
   setSelectedElement: SelectElement;
   scrollViewRef: React.RefObject<HTMLDivElement>;
 }) {
@@ -37,9 +37,10 @@ export default function PlayerDetails({
     const otherPlayerIds = [...humanConversation.participants.keys()].filter(
       (p) => p !== humanPlayer.id,
     );
-    playerId = otherPlayerIds[0];
+    if (selected?.kind !== 'poi') selected = { kind: 'player', id: otherPlayerIds[0] } as any;
   }
 
+  const playerId = selected?.kind === 'player' ? selected.id : undefined;
   const player = playerId && game.world.players.get(playerId);
   const playerConversation = player && game.world.playerConversation(player);
 
@@ -55,17 +56,17 @@ export default function PlayerDetails({
   const rejectInvite = useSendInput(engineId, 'rejectInvite');
   const leaveConversation = useSendInput(engineId, 'leaveConversation');
 
-  if (!playerId) {
+  if (!selected) {
     return (
       <div className="h-full text-xl flex text-center items-center p-4">
-        Click on an agent on the map to see chat history.
+        Click on an agent or POI on the map to see details.
       </div>
     );
   }
-  if (!player) {
+  if (selected.kind === 'player' && !player) {
     return null;
   }
-  const isMe = humanPlayer && player.id === humanPlayer.id;
+  const isMe = selected.kind === 'player' && humanPlayer && player && player.id === humanPlayer.id;
   const canInvite = !isMe && !playerConversation && humanPlayer && !humanConversation;
   const sameConversation =
     !isMe &&
@@ -138,7 +139,7 @@ export default function PlayerDetails({
       <div className="flex gap-4">
         <div className="box w-3/4 sm:w-full mr-auto">
           <h2 className="bg-brown-700 p-2 font-display text-2xl sm:text-4xl tracking-wider shadow-solid text-center">
-            {playerDescription?.name}
+            {selected.kind === 'poi' ? 'Point of Interest' : playerDescription?.name}
           </h2>
         </div>
         <a
@@ -150,7 +151,7 @@ export default function PlayerDetails({
           </h2>
         </a>
       </div>
-      {canInvite && (
+      {selected.kind === 'player' && canInvite && (
         <a
           className={
             'mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto' +
@@ -216,14 +217,15 @@ export default function PlayerDetails({
           </a>
         </>
       )}
-      {!playerConversation && player.activity && player.activity.until > Date.now() && (
+      {selected.kind === 'player' && !playerConversation && player && player.activity && player.activity.until > Date.now() && (
         <div className="box flex-grow mt-6">
           <h2 className="bg-brown-700 text-base sm:text-lg text-center">
             {player.activity.description}
           </h2>
         </div>
       )}
-      <div className="desc my-6">
+      {selected.kind === 'player' && (
+        <div className="desc my-6">
         <p className="leading-tight -m-4 bg-brown-700 text-base sm:text-sm">
           {!isMe && playerDescription?.description}
           {isMe && <i>This is you!</i>}
@@ -234,10 +236,11 @@ export default function PlayerDetails({
             </>
           )}
         </p>
-      </div>
-      {/* POI action history */}
+        </div>
+      )}
+      {selected.kind === 'poi' && <POIDetails poiId={selected.id} />}
       <PoiActionsPanel worldId={worldId} />
-      {!isMe && playerConversation && playerStatus?.kind === 'participating' && (
+      {selected.kind === 'player' && player && !isMe && playerConversation && playerStatus?.kind === 'participating' && (
         <Messages
           worldId={worldId}
           engineId={engineId}
@@ -247,7 +250,7 @@ export default function PlayerDetails({
           scrollViewRef={scrollViewRef}
         />
       )}
-      {!playerConversation && previousConversation && (
+      {selected.kind === 'player' && player && !playerConversation && previousConversation && (
         <>
           <div className="box flex-grow">
             <h2 className="bg-brown-700 text-lg text-center">Previous conversation</h2>
@@ -286,6 +289,22 @@ function PoiActionsPanel({ worldId }: { worldId: Id<'worlds'> }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function POIDetails({ poiId }: { poiId: string }) {
+  const poi = useConvexQuery(convexApi.aiTown.poi._loadPoi, { poiId: poiId as any });
+  if (!poi) return null;
+  return (
+    <div className="box flex-grow mt-6">
+      <h2 className="bg-brown-700 text-lg text-center">POI Details</h2>
+      <div className="p-3 text-sm">
+        <div className="font-bold">{poi.name}</div>
+        {poi.category && <div className="opacity-80">{poi.category}</div>}
+        {poi.address && <div className="opacity-80">{poi.address}</div>}
+        {poi.description && <div className="mt-2">{poi.description}</div>}
+      </div>
     </div>
   );
 }

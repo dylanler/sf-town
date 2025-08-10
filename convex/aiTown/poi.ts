@@ -37,6 +37,11 @@ export const importPointsOfInterest = mutation({
       places: ImportedPlace[];
     };
 
+    const map = await ctx.db
+      .query('maps')
+      .withIndex('worldId', (q) => q.eq('worldId', worldId))
+      .unique();
+
     for (const p of places) {
       // Skip duplicates by worldId + placeId
       const existing = await ctx.db
@@ -44,6 +49,15 @@ export const importPointsOfInterest = mutation({
         .withIndex('world_place', (q) => q.eq('worldId', worldId).eq('placeId', p.place_id))
         .first();
       if (existing) continue;
+      let tileX = 1;
+      let tileY = 1;
+      if (map) {
+        const w = Math.max(1, map.width - 2);
+        const h = Math.max(1, map.height - 2);
+        const hash = Array.from(p.place_id).reduce((acc, ch) => acc * 31 + ch.charCodeAt(0), 7);
+        tileX = 1 + Math.abs(hash) % w;
+        tileY = 1 + Math.abs(Math.floor(hash / 997)) % h;
+      }
       await ctx.db.insert('pointsOfInterest', {
         worldId,
         placeId: p.place_id,
@@ -51,6 +65,8 @@ export const importPointsOfInterest = mutation({
         category: p.category,
         address: p.address,
         description: p.description,
+        tileX,
+        tileY,
       });
     }
   },
@@ -115,6 +131,11 @@ export const _insertPoiAction = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.insert('poiActions', args);
   },
+});
+
+export const _loadPoi = query({
+  args: { poiId: v.id('pointsOfInterest') },
+  handler: async (ctx, { poiId }) => ctx.db.get(poiId),
 });
 
 
