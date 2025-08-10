@@ -103,7 +103,7 @@ export default function GenerateGameModal(props: {
         <div className="mt-6 bg-brown-900/60 rounded p-3">
           <div className="text-sm uppercase opacity-80 mb-2">Generate a game with Freestyle.sh</div>
           <label className="flex flex-col gap-1">
-            <span className="opacity-80">Prompt (for future backend container)</span>
+            <span className="opacity-80">Prompt</span>
             <textarea
               className="px-3 py-2 text-black rounded min-h-[96px]"
               placeholder="Describe the game, rules, visuals, or special constraints you want Freestyle to generate..."

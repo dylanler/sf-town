@@ -28,6 +28,8 @@ above) are written in Python.
 - 👤 [Customize - YOUR OWN simulated world](#customize-your-own-simulation)
 - 👩‍💻 [Deploying to production](#deploy-the-app-to-production)
 - 🐛 [Troubleshooting](#troubleshooting)
+ - 🗺️ [POIs and Map Pins](#pois-and-map-pins)
+ - 🎮 [Game Generator (Freestyle) Demo](#game-generator-freestyle-demo)
 
 ## Stack
 
@@ -328,6 +330,31 @@ all of your data.
 - Imported POIs are stored in Convex tables `pointsOfInterest` and agent interactions are logged in `poiActions`.
 - Agents occasionally “interact” with a POI; they produce an internal action text saved to `poiActions`.
 - The right sidebar shows a compact “POI actions” feed.
+
+If you’re upgrading an existing deployment, run the migration below to backfill map pin coordinates for existing POIs so they render on the map.
+
+```bash
+npx convex run migrations:backfillPoiTileCoordinates | cat
+```
+
+New installs don’t need this; fresh imports calculate tile positions automatically.
+
+### POIs and Map Pins
+
+- Points of Interest are displayed as pins on the map. Clicking a pin selects it and opens a “POI Details” panel in the right sidebar, showing name, category, address, and description when available.
+- A “POI actions” panel lists recent agent interactions with POIs.
+- Technical notes:
+  - `pointsOfInterest` now include optional `tileX` and `tileY` fields for map placement.
+  - Existing records can be backfilled via `migrations:backfillPoiTileCoordinates`.
+
+### Game Generator (Freestyle) Demo
+
+- A “Generate a game” button opens a modal to configure a simple demo match between two in-world agents.
+- Current options:
+  - Game type: Tic-Tac-Toe or Rock/Paper/Scissors
+  - Summon auto-play agents (UI only for now)
+  - Choose two existing agent names from your world
+- After configuring, a visual simulation modal appears to play out the selected game. This is a front-end demo; backend deployment/integration with Freestyle will follow.
 
 ## Commands to run / test / debug
 
