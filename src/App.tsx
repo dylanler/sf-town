@@ -22,6 +22,7 @@ import ConversationsModal from './components/ConversationsModal.tsx';
 import GenerateGameModal from './components/GenerateGameModal';
 import GameSimulationModal, { type GameConfig } from './components/GameSimulationModal';
 import { toast } from 'react-toastify';
+import DailyReportModal from './components/DailyReportModal';
  
 
 export default function Home() {
@@ -33,6 +34,7 @@ export default function Home() {
   const [generateGameOpen, setGenerateGameOpen] = useState(false);
   const [simulationOpen, setSimulationOpen] = useState(false);
   const [simulationConfig, setSimulationConfig] = useState<GameConfig | undefined>(undefined);
+  const [dailyReportOpen, setDailyReportOpen] = useState(false);
   const defaultWorld = useQuery(api.world.defaultWorldStatus);
   const worldId = defaultWorld?.worldId;
   return (
@@ -94,7 +96,7 @@ export default function Home() {
         </h1>
 
         <div className="max-w-xs md:max-w-xl lg:max-w-none mx-auto my-4 text-center text-base sm:text-xl md:text-2xl text-white leading-tight shadow-solid">
-          A virtual town where AI characters live, chat and socialize.
+          A virtual town where digital twins of real people live, chat, game, and socialize.
           {/* <Unauthenticated>
             <div className="my-1.5 sm:my-0" />
             Log in to join the town
@@ -143,6 +145,9 @@ export default function Home() {
             <Button imgUrl={starImg} onClick={() => setGenerateGameOpen(true)}>
               Generate a game
             </Button>
+          <Button imgUrl={starImg} onClick={() => setDailyReportOpen(true)}>
+            Generate Daily Report
+          </Button>
           </div>
           
         </footer>
@@ -167,6 +172,7 @@ export default function Home() {
           onRequestClose={() => setSimulationOpen(false)}
           config={simulationConfig}
         />
+        <DailyReportModal isOpen={dailyReportOpen} onRequestClose={() => setDailyReportOpen(false)} />
       </div>
     </main>
   );

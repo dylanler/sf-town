@@ -425,3 +425,167 @@ export const listConversations = query({
       }));
   },
 });
+
+export const generateDailyReport = query({
+  args: {
+    worldId: v.id('worlds'),
+  },
+  handler: async (ctx, args) => {
+    const end = Date.now();
+    const start = end - 24 * 60 * 60 * 1000;
+
+    const world = await ctx.db.get(args.worldId);
+    if (!world) {
+      throw new Error(`Invalid world ID: ${args.worldId}`);
+    }
+
+    // Load supporting data
+    const [descriptions, archivedPlayers, archivedConversations] = await Promise.all([
+      ctx.db
+        .query('playerDescriptions')
+        .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+        .collect(),
+      ctx.db
+        .query('archivedPlayers')
+        .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+        .collect(),
+      ctx.db
+        .query('archivedConversations')
+        .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+        .collect(),
+    ]);
+
+    const idToName = new Map(descriptions.map((d) => [d.playerId, d.name] as const));
+
+    // Find the human player's id(s) across current and archived players
+    const humanId = (p: { human?: string | null }) => p.human === DEFAULT_NAME;
+    const liveHumanIds = world.players.filter(humanId).map((p) => p.id);
+    const archivedHumanIds = archivedPlayers.filter(humanId).map((p) => p.id);
+    const humanIds = new Set<string>([...liveHumanIds, ...archivedHumanIds]);
+
+    // Filter conversations in time window where human participated
+    const windowed = archivedConversations.filter(
+      (c) => c.ended >= start && c.created <= end && c.participants.some((p) => humanIds.has(p)),
+    );
+
+    type RelAgg = {
+      playerId: string;
+      name: string;
+      conversationCount: number;
+      messageCount: number;
+      lastInteraction: number;
+    };
+    const relMap = new Map<string, RelAgg>();
+
+    // Build hourly buckets for timeline
+    const bucketCount = 24;
+    const bucketSize = (24 * 60 * 60 * 1000) / bucketCount;
+    const t: number[] = [];
+    const counts: number[] = [];
+    for (let i = 0; i < bucketCount; i++) {
+      t.push(start + i * bucketSize);
+      counts.push(0);
+    }
+
+    for (const c of windowed) {
+      // Identify the "other" participant
+      const other = c.participants.find((p) => !humanIds.has(p)) || c.participants[0];
+      const name = idToName.get(other) || other;
+      const prev = relMap.get(other) || {
+        playerId: other,
+        name,
+        conversationCount: 0,
+        messageCount: 0,
+        lastInteraction: 0,
+      };
+      prev.conversationCount += 1;
+      prev.messageCount += c.numMessages || 0;
+      prev.lastInteraction = Math.max(prev.lastInteraction, c.ended);
+      relMap.set(other, prev);
+
+      // Timeline bucket by ended time
+      const idx = Math.min(
+        bucketCount - 1,
+        Math.max(0, Math.floor((c.ended - start) / bucketSize)),
+      );
+      counts[idx] += Math.max(1, c.numMessages || 0);
+    }
+
+    const relationships = [...relMap.values()].sort((a, b) => b.lastInteraction - a.lastInteraction);
+
+    // Compute compatibility scores normalized across peers
+    const maxConvos = Math.max(1, ...relationships.map((r) => r.conversationCount));
+    const maxMsgs = Math.max(1, ...relationships.map((r) => r.messageCount));
+    const scored = relationships.map((r) => {
+      const recency = Math.max(0, 1 - (end - r.lastInteraction) / (24 * 60 * 60 * 1000));
+      const normConvos = r.conversationCount / maxConvos;
+      const normMsgs = r.messageCount / maxMsgs;
+      const score = Math.round((0.45 * normConvos + 0.45 * normMsgs + 0.10 * recency) * 100);
+      return { ...r, compatibility: Math.min(100, Math.max(0, score)) };
+    });
+
+    // Determine a canonical playerId string for POI queries (prefer live)
+    const meId = liveHumanIds[0] || archivedHumanIds[0];
+    let poiItems: Array<{
+      poiId: Id<'pointsOfInterest'>;
+      name: string;
+      category?: string;
+      address?: string;
+      description?: string;
+      created: number;
+      suggestion: string;
+    }> = [];
+    if (meId) {
+      // Fetch recent POI conversations for this player
+      const poiConvos = await ctx.db
+        .query('poiConversations')
+        .withIndex('world_player_poi', (q) =>
+          q.eq('worldId', args.worldId).eq('playerId', meId as any),
+        )
+        .collect();
+      const recentPoiConvos = poiConvos.filter((pc) => pc.created >= start);
+      const uniquePoiIds = Array.from(new Set(recentPoiConvos.map((pc) => pc.poiId)));
+      const pois = await Promise.all(uniquePoiIds.map((id) => ctx.db.get(id)));
+
+      const categorySuggestion = (cat?: string) => {
+        if (!cat) return 'Plan a visit and see how it compares to your digital experience.';
+        const c = cat.toLowerCase();
+        if (c.includes('restaurant') || c.includes('food') || c.includes('cafe'))
+          return 'Book a table and try it this week.';
+        if (c.includes('bar') || c.includes('drink')) return 'Grab a drink here with a friend.';
+        if (c.includes('park')) return 'Take a walk there tomorrow morning.';
+        if (c.includes('museum') || c.includes('gallery')) return 'Schedule a cultural afternoon visit.';
+        if (c.includes('gym') || c.includes('fitness')) return 'Drop in for a workout session.';
+        return 'Plan a visit and see how it compares to your digital experience.';
+      };
+
+      poiItems = pois
+        .map((p) => p)
+        .filter((p): p is Doc<'pointsOfInterest'> => !!p)
+        .map((p) => {
+          const created = recentPoiConvos.find((pc) => pc.poiId === p._id)?.created || end;
+          return {
+            poiId: p._id,
+            name: p.name,
+            category: p.category,
+            address: p.address,
+            description: p.description,
+            created,
+            suggestion: categorySuggestion(p.category),
+          };
+        })
+        .sort((a, b) => b.created - a.created);
+    }
+
+    return {
+      range: { start, end },
+      timeline: { t, counts },
+      relationships: scored,
+      pois: poiItems,
+      actions: scored.slice(0, 3).map((r) => ({
+        type: 'relationship',
+        text: `Reach out to ${r.name} for a quick chat this week.`,
+      })),
+    };
+  },
+});
