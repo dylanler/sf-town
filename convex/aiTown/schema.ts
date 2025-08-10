@@ -87,12 +87,22 @@ export const aiTownTables = {
     poiId: v.id('pointsOfInterest'),
     text: v.string(),
     timestamp: v.number(),
-    actor: v.optional(v.union(v.literal('agent'), v.literal('poi'))),
+    actor: v.optional(v.union(v.literal('agent'), v.literal('poi'), v.literal('player'))),
+    poiConversationId: v.optional(v.id('poiConversations')),
   })
     .index('world_time', ['worldId', 'timestamp'])
     .index('world_agent_time', ['worldId', 'agentId', 'timestamp'])
     .index('world_poi_time', ['worldId', 'poiId', 'timestamp'])
     .index('world_player_time', ['worldId', 'playerId', 'timestamp']),
+
+  poiConversations: defineTable({
+    worldId: v.id('worlds'),
+    playerId,
+    poiId: v.id('pointsOfInterest'),
+    created: v.number(),
+    ended: v.optional(v.number()),
+  })
+    .index('world_player_poi', ['worldId', 'playerId', 'poiId']),
 
   // The agent layer wants to know what the last (completed) conversation was between two players,
   // so this table represents a labelled graph indicating which players have talked to each other.

@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { ActionCtx, internalAction, internalMutation, mutation, query } from '../_generated/server';
 import { Id } from '../_generated/dataModel';
-import { internal } from '../_generated/api';
+import { api, internal } from '../_generated/api';
 
 type ImportedPlace = {
   name: string;
@@ -105,9 +105,12 @@ export const agentInteractWithPoi = internalAction({
     poiId: v.id('pointsOfInterest'),
   },
   handler: async (ctx: ActionCtx, args) => {
-    // Minimal internal thought text without LLM dependency to keep this self-contained.
-    // Future: enrich with LLM prompt using player and POI descriptions.
     const timestamp = Date.now();
+    const convo = await ctx.runMutation(api.aiTown.poi._ensurePoiConversation, {
+      worldId: args.worldId,
+      playerId: args.playerId,
+      poiId: args.poiId,
+    });
     await ctx.runMutation(internal.aiTown.poi._insertPoiAction, {
       worldId: args.worldId,
       agentId: args.agentId,
@@ -115,6 +118,14 @@ export const agentInteractWithPoi = internalAction({
       poiId: args.poiId,
       text: 'observes and reflects on this place quietly.',
       timestamp,
+      actor: 'agent',
+      poiConversationId: (convo?._id as any),
+    });
+    await ctx.runAction(internal.aiTown.poi.poiRespond, {
+      worldId: args.worldId,
+      playerId: args.playerId,
+      poiId: args.poiId,
+      poiConversationId: (convo?._id as any),
     });
   },
 });
@@ -127,6 +138,8 @@ export const _insertPoiAction = internalMutation({
     poiId: v.id('pointsOfInterest'),
     text: v.string(),
     timestamp: v.number(),
+    actor: v.optional(v.union(v.literal('agent'), v.literal('poi'), v.literal('player'))),
+    poiConversationId: v.optional(v.id('poiConversations')),
   },
   handler: async (ctx, args) => {
     await ctx.db.insert('poiActions', args);
@@ -136,6 +149,47 @@ export const _insertPoiAction = internalMutation({
 export const _loadPoi = query({
   args: { poiId: v.id('pointsOfInterest') },
   handler: async (ctx, { poiId }) => ctx.db.get(poiId),
+});
+
+export const _ensurePoiConversation = mutation({
+  args: { worldId: v.id('worlds'), playerId: v.string(), poiId: v.id('pointsOfInterest') },
+  handler: async (ctx, { worldId, playerId, poiId }) => {
+    const existing = await ctx.db
+      .query('poiConversations')
+      .withIndex('world_player_poi', (q) => q.eq('worldId', worldId).eq('playerId', playerId).eq('poiId', poiId))
+      .first();
+    if (existing) return existing;
+    const _id = await ctx.db.insert('poiConversations', {
+      worldId,
+      playerId,
+      poiId,
+      created: Date.now(),
+    });
+    return await ctx.db.get(_id);
+  },
+});
+
+export const poiRespond = internalAction({
+  args: {
+    worldId: v.id('worlds'),
+    playerId: v.string(),
+    poiId: v.id('pointsOfInterest'),
+    poiConversationId: v.id('poiConversations'),
+  },
+  handler: async (ctx, args) => {
+    const poi = await ctx.runQuery(api.aiTown.poi._loadPoi, { poiId: args.poiId });
+    const reply = poi?.description ? `${poi.name}: ${poi.description}` : `${poi?.name ?? 'POI'} acknowledges.`;
+    await ctx.runMutation(internal.aiTown.poi._insertPoiAction, {
+      worldId: args.worldId,
+      agentId: '',
+      playerId: args.playerId,
+      poiId: args.poiId,
+      text: reply,
+      timestamp: Date.now(),
+      actor: 'poi',
+      poiConversationId: args.poiConversationId,
+    });
+  },
 });
 
 

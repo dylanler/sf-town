@@ -20,6 +20,7 @@ import { MAX_HUMAN_PLAYERS } from '../convex/constants.ts';
 import CharacterInitForm from './components/CharacterInitForm.tsx';
 import ConversationsModal from './components/ConversationsModal.tsx';
 import GenerateGameModal from './components/GenerateGameModal';
+import GameSimulationModal, { type GameConfig } from './components/GameSimulationModal';
 import { toast } from 'react-toastify';
  
 
@@ -30,6 +31,8 @@ export default function Home() {
   const [playerDescription, setPlayerDescription] = useState('25 years old, I love hackathons');
   const [conversationsOpen, setConversationsOpen] = useState(false);
   const [generateGameOpen, setGenerateGameOpen] = useState(false);
+  const [simulationOpen, setSimulationOpen] = useState(false);
+  const [simulationConfig, setSimulationConfig] = useState<GameConfig | undefined>(undefined);
   const defaultWorld = useQuery(api.world.defaultWorldStatus);
   const worldId = defaultWorld?.worldId;
   return (
@@ -149,57 +152,20 @@ export default function Home() {
           isOpen={generateGameOpen}
           onRequestClose={() => setGenerateGameOpen(false)}
           onGenerate={(config) => {
-            // Frontend-only simple JS simulation for now
-            if (config.gameType === 'rock-paper-scissors') {
-              const choices = ['rock', 'paper', 'scissors'] as const;
-              const a = choices[Math.floor(Math.random() * choices.length)];
-              const b = choices[Math.floor(Math.random() * choices.length)];
-              const result =
-                a === b
-                  ? 'draw'
-                  : (a === 'rock' && b === 'scissors') ||
-                    (a === 'paper' && b === 'rock') ||
-                    (a === 'scissors' && b === 'paper')
-                  ? `${config.agentOneName} wins`
-                  : `${config.agentTwoName} wins`;
-              toast.info(`RPS: ${config.agentOneName}=${a}, ${config.agentTwoName}=${b} → ${result}`);
-            } else {
-              // Tic Tac Toe quick autoplay (random moves) just to demo
-              const board = Array(9).fill('');
-              const players = [config.agentOneName, config.agentTwoName];
-              const marks = ['X', 'O'] as const;
-              let winner: string | null = null;
-              const wins = [
-                [0, 1, 2],
-                [3, 4, 5],
-                [6, 7, 8],
-                [0, 3, 6],
-                [1, 4, 7],
-                [2, 5, 8],
-                [0, 4, 8],
-                [2, 4, 6],
-              ];
-              const emptyIndices = () => board.map((v, i) => (v ? -1 : i)).filter((i) => i !== -1);
-              for (let turn = 0; turn < 9 && !winner; turn++) {
-                const idxs = emptyIndices();
-                if (!idxs.length) break;
-                const idx = idxs[Math.floor(Math.random() * idxs.length)];
-                board[idx] = marks[turn % 2];
-                // check winner
-                for (const w of wins) {
-                  const [a, b, c] = w;
-                  if (board[a] && board[a] === board[b] && board[b] === board[c]) {
-                    winner = players[turn % 2];
-                    break;
-                  }
-                }
-              }
-              toast.info(
-                winner ? `Tic Tac Toe winner: ${winner}` : 'Tic Tac Toe: draw',
-              );
-            }
+            // Open visual simulation modal with selected config
+            setSimulationConfig({
+              gameType: config.gameType,
+              agentOneName: config.agentOneName,
+              agentTwoName: config.agentTwoName,
+            });
             setGenerateGameOpen(false);
+            setSimulationOpen(true);
           }}
+        />
+        <GameSimulationModal
+          isOpen={simulationOpen}
+          onRequestClose={() => setSimulationOpen(false)}
+          config={simulationConfig}
         />
       </div>
     </main>

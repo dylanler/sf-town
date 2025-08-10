@@ -12,12 +12,14 @@ export default function GenerateGameModal(props: {
     autoAgents: boolean;
     agentOneName: string;
     agentTwoName: string;
+    freestylePrompt: string;
   }) => void;
 }) {
   const [gameType, setGameType] = useState<'tic-tac-toe' | 'rock-paper-scissors'>('tic-tac-toe');
   const [autoAgents, setAutoAgents] = useState(true);
   const [agentOneName, setAgentOneName] = useState('');
   const [agentTwoName, setAgentTwoName] = useState('');
+  const [freestylePrompt, setFreestylePrompt] = useState('');
 
   const worldStatus = useQuery(api.world.defaultWorldStatus);
   const worldId: Id<'worlds'> | undefined = worldStatus?.worldId;
@@ -32,13 +34,13 @@ export default function GenerateGameModal(props: {
   const onGenerate = () => {
     // TODO: Integrate Freestyle to generate/deploy games and spawn agents
     if (!canGenerate) return;
-    props.onGenerate({ gameType, autoAgents, agentOneName, agentTwoName });
+    props.onGenerate({ gameType, autoAgents, agentOneName, agentTwoName, freestylePrompt });
   };
 
   return (
     <ReactModal isOpen={props.isOpen} onRequestClose={props.onRequestClose} style={modalStyles} ariaHideApp={false}>
       <div className="font-body text-white">
-        <h2 className="text-3xl font-bold text-center mb-4">Generate a game</h2>
+        <h2 className="text-3xl font-bold text-center mb-4">Generate a game with Freestyle.sh</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="flex flex-col gap-1">
             <span className="text-sm uppercase tracking-wide opacity-80">Game type</span>
@@ -95,6 +97,19 @@ export default function GenerateGameModal(props: {
                 </option>
               ))}
             </select>
+          </label>
+        </div>
+
+        <div className="mt-6 bg-brown-900/60 rounded p-3">
+          <div className="text-sm uppercase opacity-80 mb-2">Generate a game with Freestyle.sh</div>
+          <label className="flex flex-col gap-1">
+            <span className="opacity-80">Prompt (for future backend container)</span>
+            <textarea
+              className="px-3 py-2 text-black rounded min-h-[96px]"
+              placeholder="Describe the game, rules, visuals, or special constraints you want Freestyle to generate..."
+              value={freestylePrompt}
+              onChange={(e) => setFreestylePrompt(e.target.value)}
+            />
           </label>
         </div>
 
