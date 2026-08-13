@@ -35,6 +35,8 @@ export type Resident = {
   destinationId: string;
   traits: string[];
   goals: string[];
+  lastDecisionSource?: 'llm' | 'routine';
+  lastDecisionAt?: number;
 };
 
 export type TownMessage = {
@@ -63,7 +65,8 @@ export type TownInteraction = {
   summary: string;
   dialogue: string[];
   createdAt: number;
-  source: 'llm' | 'fallback';
+  source: 'llm';
+  encounterId: string;
 };
 
 export type DecisionStep = {
@@ -76,6 +79,8 @@ export type DecisionStep = {
   reason: string;
   outcome: string;
   locationId: string;
+  source: 'llm' | 'routine';
+  confidence: number;
 };
 
 export type SimulationState = {
@@ -85,13 +90,16 @@ export type SimulationState = {
   speed: 0.5 | 1 | 2;
   trackedResidentId: string;
   lastPulseAt: number;
+  llmCoverage: number;
+  activeEncounters: number;
 };
 
 export type TownState = {
-  version: 3;
+  version: 5;
   visitorName: string;
   visitorBio: string;
   visitorAccent: string;
+  visitorPosition: Point;
   residents: Resident[];
   places: TownPlace[];
   messages: TownMessage[];
@@ -102,34 +110,88 @@ export type TownState = {
   simulation: SimulationState;
 };
 
-const STORAGE_KEY = 'sf-town.local-db.v3';
-const LEGACY_STORAGE_KEYS = ['sf-town.local-db.v2', 'sf-town.local-db.v1'];
+export type Point = { left: number; top: number };
+export type NavNode = Point & { id: string; neighbors: string[] };
+
+const STORAGE_KEY = 'sf-town.local-db.v5';
+const LEGACY_STORAGE_KEYS = ['sf-town.local-db.v4', 'sf-town.local-db.v3', 'sf-town.local-db.v2', 'sf-town.local-db.v1'];
 const listeners = new Set<() => void>();
+
+export const navNodes: NavNode[] = [
+  { id: 'overlook', left: 17, top: 28, neighbors: ['west-crossing'] },
+  { id: 'west-crossing', left: 28, top: 36, neighbors: ['overlook', 'cable-loop', 'north-center', 'west-mid'] },
+  { id: 'cable-loop', left: 35, top: 43, neighbors: ['west-crossing', 'center-mid'] },
+  { id: 'north-center', left: 47, top: 36, neighbors: ['west-crossing', 'north-east', 'center-mid'] },
+  { id: 'north-east', left: 64, top: 36, neighbors: ['north-center', 'coit-plaza', 'east-crossing', 'center-east'] },
+  { id: 'coit-plaza', left: 72, top: 19, neighbors: ['north-east', 'east-crossing'] },
+  { id: 'east-crossing', left: 80, top: 36, neighbors: ['north-east', 'coit-plaza', 'ferry-plaza', 'east-mid'] },
+  { id: 'ferry-plaza', left: 89, top: 42, neighbors: ['east-crossing', 'pier-mid'] },
+  { id: 'west-mid', left: 28, top: 55, neighbors: ['west-crossing', 'center-mid', 'west-south'] },
+  { id: 'center-mid', left: 47, top: 55, neighbors: ['cable-loop', 'north-center', 'west-mid', 'center-east', 'center-south'] },
+  { id: 'center-east', left: 64, top: 55, neighbors: ['north-east', 'center-mid', 'east-mid', 'east-south'] },
+  { id: 'east-mid', left: 80, top: 55, neighbors: ['east-crossing', 'center-east', 'pier-mid', 'east-south'] },
+  { id: 'pier-mid', left: 90, top: 57, neighbors: ['ferry-plaza', 'east-mid', 'pier-south'] },
+  { id: 'west-south', left: 28, top: 70, neighbors: ['west-mid', 'painted-park', 'center-south'] },
+  { id: 'painted-park', left: 31, top: 78, neighbors: ['west-south', 'southwest'] },
+  { id: 'center-south', left: 47, top: 70, neighbors: ['center-mid', 'west-south', 'east-south', 'southwest'] },
+  { id: 'east-south', left: 64, top: 70, neighbors: ['center-east', 'center-south', 'mission-alley', 'southeast'] },
+  { id: 'mission-alley', left: 72, top: 79, neighbors: ['east-south', 'southeast'] },
+  { id: 'southeast', left: 80, top: 70, neighbors: ['east-mid', 'east-south', 'mission-alley', 'pier-south', 'south-east-bottom'] },
+  { id: 'pier-south', left: 90, top: 72, neighbors: ['pier-mid', 'southeast'] },
+  { id: 'southwest', left: 47, top: 88, neighbors: ['painted-park', 'center-south', 'south-center'] },
+  { id: 'south-center', left: 64, top: 88, neighbors: ['southwest', 'mission-alley', 'south-east-bottom'] },
+  { id: 'south-east-bottom', left: 80, top: 88, neighbors: ['south-center', 'southeast'] },
+];
+
+const navNodeById = new Map(navNodes.map((node) => [node.id, node]));
+export const navEdges = navNodes.flatMap((node) => node.neighbors.filter((neighbor) => node.id < neighbor).map((neighbor) => ({ from: node.id, to: neighbor })));
+
+function distance(a: Point, b: Point) {
+  return Math.hypot(a.left - b.left, a.top - b.top);
+}
+
+function distanceToSegment(point: Point, start: Point, end: Point) {
+  const dx = end.left - start.left;
+  const dy = end.top - start.top;
+  const lengthSquared = dx * dx + dy * dy;
+  const t = lengthSquared === 0 ? 0 : clamp(((point.left - start.left) * dx + (point.top - start.top) * dy) / lengthSquared, 0, 1);
+  return distance(point, { left: start.left + t * dx, top: start.top + t * dy });
+}
+
+export function isWalkable(point: Point) {
+  if (point.left < 7 || point.left > 94 || point.top < 10 || point.top > 93) return false;
+  if (navNodes.some((node) => distance(point, node) <= 4.2)) return true;
+  return navEdges.some((edge) => {
+    const start = navNodeById.get(edge.from)!;
+    const end = navNodeById.get(edge.to)!;
+    return distanceToSegment(point, start, end) <= 3.1;
+  });
+}
 
 export const places: TownPlace[] = [
   {
     id: 'golden-gate', name: 'Golden Gate Overlook', neighborhood: 'Presidio', category: 'Landmark',
-    description: 'A fog-softened overlook where the bridge turns orange at sunset.', position: { left: 16, top: 18 }, accent: '#f06b4f', sheetIndex: 0,
+    description: 'A fog-softened overlook where the bridge turns orange at sunset.', position: { left: 17, top: 28 }, accent: '#f06b4f', sheetIndex: 0,
   },
   {
     id: 'cable-car', name: 'Powell Cable Car', neighborhood: 'Nob Hill', category: 'Transit',
-    description: 'The bell rings twice before the car takes the next steep corner.', position: { left: 39, top: 32 }, accent: '#e7ad45', sheetIndex: 1,
+    description: 'The bell rings twice before the car takes the next steep corner.', position: { left: 35, top: 43 }, accent: '#e7ad45', sheetIndex: 1,
   },
   {
     id: 'coit-tower', name: 'Coit Tower Steps', neighborhood: 'Telegraph Hill', category: 'Viewpoint',
-    description: 'A hillside perch above the bay with a perfect view of passing ferries.', position: { left: 69, top: 17 }, accent: '#8da8b6', sheetIndex: 2,
+    description: 'A hillside perch above the bay with a perfect view of passing ferries.', position: { left: 72, top: 19 }, accent: '#8da8b6', sheetIndex: 2,
   },
   {
     id: 'painted-ladies', name: 'Alamo Square Row', neighborhood: 'Alamo Square', category: 'Neighborhood',
-    description: 'Colorful Victorian facades and a patch of grass made for lingering.', position: { left: 35, top: 70 }, accent: '#dd6f68', sheetIndex: 3,
+    description: 'Colorful Victorian facades and a patch of grass made for lingering.', position: { left: 31, top: 78 }, accent: '#dd6f68', sheetIndex: 3,
   },
   {
     id: 'mission-mural', name: 'Balmy Alley Murals', neighborhood: 'Mission', category: 'Arts',
-    description: 'A bright corridor of community murals, tacos, and late afternoon sun.', position: { left: 75, top: 65 }, accent: '#28b7ad', sheetIndex: 4,
+    description: 'A bright corridor of community murals, tacos, and late afternoon sun.', position: { left: 72, top: 79 }, accent: '#28b7ad', sheetIndex: 4,
   },
   {
     id: 'fog-pier', name: 'Ferry Building Pier', neighborhood: 'Embarcadero', category: 'Waterfront',
-    description: 'Wooden boards, salty air, and a clear line toward the East Bay hills.', position: { left: 87, top: 30 }, accent: '#5da8cb', sheetIndex: 5,
+    description: 'Wooden boards, salty air, and a clear line toward the East Bay hills.', position: { left: 89, top: 42 }, accent: '#5da8cb', sheetIndex: 5,
   },
 ];
 
@@ -239,14 +301,33 @@ function routineFor(resident: Resident, minuteOfDay: number) {
   return resident.routine.find((block) => minuteOfDay >= block.start && minuteOfDay < block.end) || resident.routine[0];
 }
 
+function nearestNode(point: Point) {
+  return navNodes.reduce((best, node) => distance(point, node) < distance(point, best) ? node : best, navNodes[0]);
+}
+
+function seededResidents() {
+  return residents.map((resident, index) => {
+    const destination = places.find((place) => place.id === resident.destinationId) || places[index % places.length];
+    const node = index < 12 ? nearestNode(destination.position) : navNodes[(index * 7) % navNodes.length];
+    const offset = ((index % 5) - 2) * 0.38;
+    return {
+      ...resident,
+      position: { left: node.left + offset, top: node.top + (index % 2 === 0 ? 0.55 : -0.55) },
+      lastDecisionSource: 'routine' as const,
+      lastDecisionAt: 0,
+    };
+  });
+}
+
 export function createDefaultState(): TownState {
   const now = Date.now();
   return {
-    version: 3,
+    version: 5,
     visitorName: 'Dylan',
     visitorBio: 'Exploring San Francisco one neighborhood at a time.',
     visitorAccent: '#f6c453',
-    residents,
+    visitorPosition: { left: 47, top: 55 },
+    residents: seededResidents(),
     places,
     messages: [],
     events: [
@@ -256,12 +337,13 @@ export function createDefaultState(): TownState {
     interactions: [],
     decisions: [],
     visitedPlaceIds: [],
-    simulation: { tick: 0, minuteOfDay: 19 * 60 + 42, running: true, speed: 1, trackedResidentId: 'maya', lastPulseAt: 0 },
+    simulation: { tick: 0, minuteOfDay: 19 * 60 + 42, running: true, speed: 1, trackedResidentId: 'maya', lastPulseAt: 0, llmCoverage: 0, activeEncounters: 0 },
   };
 }
 
 function normalizeState(value: Partial<TownState>): TownState {
   const fresh = createDefaultState();
+  const hasCurrentSimulationMemory = value.version === 5;
   const storedResidents = Array.isArray(value.residents) ? value.residents : [];
   const storedSimulation = (value.simulation || {}) as Partial<SimulationState>;
   const storedMessages = Array.isArray(value.messages) ? value.messages : [];
@@ -270,18 +352,25 @@ function normalizeState(value: Partial<TownState>): TownState {
     visitorName: value.visitorName || fresh.visitorName,
     visitorBio: value.visitorBio || fresh.visitorBio,
     visitorAccent: value.visitorAccent || fresh.visitorAccent,
-    residents: fresh.residents.map((resident) => ({
-      ...resident,
-      ...(storedResidents.find((stored) => stored.id === resident.id) || {}),
-      spriteIndex: resident.spriteIndex,
-      routine: resident.routine,
-      traits: resident.traits,
-      goals: resident.goals,
-    })),
+    visitorPosition: value.visitorPosition && isWalkable(value.visitorPosition) ? value.visitorPosition : fresh.visitorPosition,
+    residents: fresh.residents.map((resident) => {
+      const stored = storedResidents.find((candidate) => candidate.id === resident.id);
+      return {
+        ...resident,
+        ...stored,
+        position: stored?.position && isWalkable(stored.position) ? stored.position : resident.position,
+        spriteIndex: resident.spriteIndex,
+        routine: resident.routine,
+        traits: resident.traits,
+        goals: resident.goals,
+        lastDecisionSource: hasCurrentSimulationMemory && stored?.lastDecisionSource === 'llm' ? 'llm' : 'routine',
+        lastDecisionAt: hasCurrentSimulationMemory ? stored?.lastDecisionAt || 0 : 0,
+      };
+    }),
     messages: storedMessages.filter((message) => !message.id.startsWith('msg-starter')),
     events: Array.isArray(value.events) && value.events.length > 0 ? value.events : fresh.events,
-    interactions: Array.isArray(value.interactions) ? value.interactions : fresh.interactions,
-    decisions: Array.isArray(value.decisions) ? value.decisions : fresh.decisions,
+    interactions: hasCurrentSimulationMemory && Array.isArray(value.interactions) ? value.interactions : fresh.interactions,
+    decisions: hasCurrentSimulationMemory && Array.isArray(value.decisions) ? value.decisions : fresh.decisions,
     visitedPlaceIds: Array.isArray(value.visitedPlaceIds) ? value.visitedPlaceIds : fresh.visitedPlaceIds,
     simulation: {
       ...fresh.simulation,
@@ -397,9 +486,81 @@ export function setTrackedResident(residentId: string) {
   updateTownState((draft) => { draft.simulation.trackedResidentId = residentId; });
 }
 
+export function moveVisitor(dx: number, dy: number) {
+  updateTownState((draft) => {
+    const magnitude = Math.hypot(dx, dy) || 1;
+    const step = 1.45;
+    const current = draft.visitorPosition;
+    const next = { left: current.left + (dx / magnitude) * step, top: current.top + (dy / magnitude) * step };
+    if (isWalkable(next)) draft.visitorPosition = next;
+    else {
+      const horizontal = { left: next.left, top: current.top };
+      const vertical = { left: current.left, top: next.top };
+      if (isWalkable(horizontal)) draft.visitorPosition = horizontal;
+      else if (isWalkable(vertical)) draft.visitorPosition = vertical;
+    }
+  });
+}
+
 function movementEvent(resident: Resident, place: TownPlace, minute: number) {
   const clock = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
   return `${clock} · ${resident.name} is ${resident.activity} near ${place.name}.`;
+}
+
+function nextNodeTowards(startId: string, targetId: string) {
+  if (startId === targetId) return navNodeById.get(startId)!;
+  const queue: Array<{ id: string; first: string }> = navNodeById.get(startId)!.neighbors.map((id) => ({ id, first: id }));
+  const visited = new Set([startId]);
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current.id)) continue;
+    if (current.id === targetId) return navNodeById.get(current.first)!;
+    visited.add(current.id);
+    navNodeById.get(current.id)!.neighbors.forEach((id) => queue.push({ id, first: current.first }));
+  }
+  return navNodeById.get(startId)!;
+}
+
+function moveAlongPaths(position: Point, destination: Point, speed: number) {
+  const currentNode = nearestNode(position);
+  const targetNode = nearestNode(destination);
+  const waypoint = distance(position, currentNode) > 1.5 ? currentNode : nextNodeTowards(currentNode.id, targetNode.id);
+  const target = currentNode.id === targetNode.id ? destination : waypoint;
+  const gap = distance(position, target);
+  if (gap <= speed) return { left: target.left, top: target.top };
+  const next = { left: position.left + ((target.left - position.left) / gap) * speed, top: position.top + ((target.top - position.top) / gap) * speed };
+  return isWalkable(next) ? next : { left: currentNode.left, top: currentNode.top };
+}
+
+type EncounterPayload = {
+  id: string;
+  participantIds: [string, string];
+  locationId: string;
+  locationName: string;
+  residents: Array<Pick<Resident, 'id' | 'name' | 'role' | 'activity' | 'mood' | 'goals' | 'traits'>>;
+};
+
+function detectEncounters(current: TownState): EncounterPayload[] {
+  const recentPairs = new Set(current.interactions.filter((interaction) => Date.now() - interaction.createdAt < 90_000).map((interaction) => [...interaction.participantIds].sort().join('|')));
+  const encounters: EncounterPayload[] = [];
+  for (let firstIndex = 0; firstIndex < current.residents.length && encounters.length < 8; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < current.residents.length && encounters.length < 8; secondIndex += 1) {
+      const first = current.residents[firstIndex];
+      const second = current.residents[secondIndex];
+      const pairKey = [first.id, second.id].sort().join('|');
+      if (recentPairs.has(pairKey) || distance(first.position, second.position) > 2.35) continue;
+      const midpoint = { left: (first.position.left + second.position.left) / 2, top: (first.position.top + second.position.top) / 2 };
+      const location = current.places.reduce((best, place) => distance(midpoint, place.position) < distance(midpoint, best.position) ? place : best, current.places[0]);
+      encounters.push({
+        id: `encounter-${current.simulation.tick}-${first.id}-${second.id}`,
+        participantIds: [first.id, second.id],
+        locationId: location.id,
+        locationName: location.name,
+        residents: [first, second].map(({ id, name, role, activity, mood, goals, traits }) => ({ id, name, role, activity, mood, goals, traits })),
+      });
+    }
+  }
+  return encounters;
 }
 
 export function advanceSimulation() {
@@ -410,27 +571,18 @@ export function advanceSimulation() {
     const placeById = new Map(draft.places.map((place) => [place.id, place]));
     const nextResidents = draft.residents.map((resident) => {
       const block = routineFor(resident, minuteOfDay);
-      const destination = placeById.get(block.placeId) || draft.places[0];
-      const wobble = ((hash(`${resident.id}-${tick}`) % 9) - 4) * 0.22;
-      const left = resident.position.left + (destination.position.left + wobble - resident.position.left) * 0.18;
-      const top = resident.position.top + (destination.position.top - resident.position.top) * 0.18;
+      const hasFreshLlmPlan = resident.lastDecisionSource === 'llm' && Date.now() - (resident.lastDecisionAt || 0) < 150_000;
+      const destinationId = hasFreshLlmPlan ? resident.destinationId : block.placeId;
+      const destination = placeById.get(destinationId) || draft.places[0];
+      const position = moveAlongPaths(resident.position, destination.position, 0.75 + draft.simulation.speed * 0.32);
       const energy = clamp(resident.energy + (resident.status === 'resting' ? 2 : -1), 35, 100);
       const status: Resident['status'] = energy < 48 ? 'resting' : hash(`${resident.id}-${tick}`) % 4 === 0 ? 'wandering' : 'online';
-      return { ...resident, position: { left, top }, destinationId: destination.id, activity: block.activity, energy, status };
-    });
-    const decisionSteps = nextResidents.slice(0, 100).map((resident) => {
-      const place = placeById.get(resident.destinationId) || draft.places[0];
-      const options = [resident.activity, 'take a scenic detour', 'look for a neighbor who needs help'];
-      const choiceIndex = hash(`${resident.id}-${tick}`) % options.length;
-      return {
-        id: makeId('decision'), residentId: resident.id, createdAt: Date.now(), need: resident.goals[tick % resident.goals.length], options,
-        choice: options[choiceIndex], reason: `${resident.mood} instincts and the shape of the fog`, outcome: `route continues toward ${place.name}`, locationId: place.id,
-      };
+      return { ...resident, position, destinationId: destination.id, activity: hasFreshLlmPlan ? resident.activity : block.activity, energy, status, lastDecisionSource: hasFreshLlmPlan ? 'llm' as const : 'routine' as const };
     });
     draft.residents = nextResidents;
-    draft.decisions = [...decisionSteps, ...draft.decisions].slice(0, 600);
     draft.simulation.tick = tick;
     draft.simulation.minuteOfDay = minuteOfDay;
+    draft.simulation.activeEncounters = detectEncounters(draft).length;
     if (tick % 4 === 0) {
       const resident = nextResidents[hash(String(tick)) % nextResidents.length];
       const place = placeById.get(resident.destinationId) || draft.places[0];
@@ -442,21 +594,44 @@ export function advanceSimulation() {
 
 type SimulationResponse = {
   event?: string;
-  interactions?: Array<{ participants?: string[]; locationId?: string; summary?: string; dialogue?: string[] }>;
-  decisions?: Array<{ residentId?: string; need?: string; options?: string[]; choice?: string; reason?: string; outcome?: string; locationId?: string }>;
-  mode?: 'llm' | 'fallback';
+  interactions?: Array<{ encounterId?: string; participants?: string[]; locationId?: string; summary?: string; dialogue?: string[] }>;
+  decisions?: Array<{ residentId?: string; need?: string; options?: string[]; choice?: string; reason?: string; outcome?: string; destinationId?: string; activity?: string; mood?: string; confidence?: number }>;
+  mode?: 'llm' | 'partial' | 'fallback';
+  coverage?: number;
 };
 
-function fallbackInteraction(current: TownState): TownInteraction | undefined {
-  const groups = new Map<string, Resident[]>();
-  current.residents.forEach((resident) => groups.set(resident.destinationId, [...(groups.get(resident.destinationId) || []), resident]));
-  const group = [...groups.values()].find((members) => members.length > 1) || current.residents.slice(0, 2);
-  if (group.length < 2) return undefined;
-  const location = current.places.find((place) => place.id === group[0].destinationId) || current.places[0];
-  return {
-    id: makeId('interaction'), participantIds: group.slice(0, 2).map((resident) => resident.id), participantNames: group.slice(0, 2).map((resident) => resident.name), locationId: location.id, locationName: location.name,
-    summary: `${group[0].name} and ${group[1].name} crossed paths while the fog shifted.`, dialogue: ['A small hello becomes a shared plan for later.'], createdAt: Date.now(), source: 'fallback',
-  };
+function chunksOf<T>(values: T[], size: number) {
+  return Array.from({ length: Math.ceil(values.length / size) }, (_, index) => values.slice(index * size, (index + 1) * size));
+}
+
+async function postTown<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`${path} failed: ${response.status}`);
+  return (await response.json()) as T;
+}
+
+function recordEncounterDialogues(encounters: ReturnType<typeof detectEncounters>, rawInteractions: NonNullable<SimulationResponse['interactions']>) {
+  updateTownState((draft) => {
+    const residentById = new Map(draft.residents.map((resident) => [resident.id, resident]));
+    const placeById = new Map(draft.places.map((place) => [place.id, place]));
+    const encounterById = new Map(encounters.map((encounter) => [encounter.id, encounter]));
+    const interactions: TownInteraction[] = rawInteractions.slice(0, 8).flatMap((item) => {
+      const encounter = encounterById.get(item.encounterId || '');
+      const participants = (item.participants || []).map((id) => residentById.get(id)).filter(Boolean) as Resident[];
+      const expectedPair = encounter ? [...encounter.participantIds].sort().join('|') : '';
+      const actualPair = participants.map((resident) => resident.id).sort().join('|');
+      const location = placeById.get(encounter?.locationId || item.locationId || '') || draft.places[0];
+      if (!encounter || expectedPair !== actualPair || !item.summary?.trim() || (item.dialogue || []).length < 2) return [];
+      return [{ id: makeId('interaction'), encounterId: encounter.id, participantIds: participants.map((resident) => resident.id), participantNames: participants.map((resident) => resident.name), locationId: location.id, locationName: location.name, summary: item.summary.trim(), dialogue: (item.dialogue || []).map((line) => line.trim()).filter(Boolean).slice(0, 8), createdAt: Date.now(), source: 'llm' }];
+    });
+    draft.interactions = [...interactions, ...draft.interactions].slice(0, 300);
+    interactions.forEach((interaction) => draft.events.unshift({ id: makeId('event'), text: `${interaction.participantNames.join(' and ')} talked at ${interaction.locationName}.`, kind: 'interaction', createdAt: Date.now() }));
+    draft.events = draft.events.slice(0, 80);
+  });
 }
 
 export async function requestSimulationPulse() {
@@ -464,39 +639,86 @@ export async function requestSimulationPulse() {
   pulseInFlight = true;
   try {
     const current = getTownState();
-    const sampledResidents = current.residents.filter((_, index) => index % 4 === 0).slice(0, 28);
-    const response = await fetch('/api/town/simulation', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ minuteOfDay: current.simulation.minuteOfDay, residents: sampledResidents, places: current.places, recentInteractions: current.interactions.slice(0, 8) }),
+    const encounters = detectEncounters(current);
+    const context = { minuteOfDay: current.simulation.minuteOfDay, places: current.places, recentInteractions: current.interactions.slice(0, 12) };
+    const interactionByEncounter = new Map<string, NonNullable<SimulationResponse['interactions']>[number]>();
+    for (const encounterBatch of chunksOf(encounters, 2)) {
+      const response = await postTown<SimulationResponse>('/api/town/encounters', { ...context, encounters: encounterBatch }).catch(() => ({ interactions: [] }));
+      (response.interactions || []).forEach((interaction) => {
+        if (interaction.encounterId) interactionByEncounter.set(interaction.encounterId, interaction);
+      });
+    }
+    const missingEncounters = encounters.filter((encounter) => !interactionByEncounter.has(encounter.id));
+    for (const encounter of missingEncounters) {
+      const response = await postTown<SimulationResponse>('/api/town/encounters', { ...context, encounters: [encounter] }).catch(() => ({ interactions: [] }));
+      (response.interactions || []).forEach((interaction) => {
+        if (interaction.encounterId) interactionByEncounter.set(interaction.encounterId, interaction);
+      });
+    }
+    recordEncounterDialogues(encounters, [...interactionByEncounter.values()]);
+
+    const decisionResults = await Promise.allSettled(
+      chunksOf(current.residents, 10).map((residents) => postTown<SimulationResponse>('/api/town/decisions', { ...context, residents })),
+    );
+    const decisionsByResident = new Map<string, NonNullable<SimulationResponse['decisions']>[number]>();
+    decisionResults.forEach((result) => {
+      if (result.status !== 'fulfilled') return;
+      (result.value.decisions || []).forEach((decision) => {
+        if (decision.residentId) decisionsByResident.set(decision.residentId, decision);
+      });
     });
-    if (!response.ok) throw new Error(`Simulation request failed: ${response.status}`);
-    const data = (await response.json()) as SimulationResponse;
+
+    const missingResidents = current.residents.filter((resident) => !decisionsByResident.has(resident.id));
+    if (missingResidents.length) {
+      const retries = await Promise.allSettled(
+        chunksOf(missingResidents, 5).map((residents) => postTown<SimulationResponse>('/api/town/decisions', { ...context, residents })),
+      );
+      retries.forEach((result) => {
+        if (result.status !== 'fulfilled') return;
+        (result.value.decisions || []).forEach((decision) => {
+          if (decision.residentId) decisionsByResident.set(decision.residentId, decision);
+        });
+      });
+    }
+    const finalMissingResidents = current.residents.filter((resident) => !decisionsByResident.has(resident.id));
+    for (const resident of finalMissingResidents) {
+      for (let attempt = 0; attempt < 2 && !decisionsByResident.has(resident.id); attempt += 1) {
+        const response = await postTown<SimulationResponse>('/api/town/decisions', { ...context, residents: [resident] }).catch(() => ({ decisions: [] }));
+        (response.decisions || []).forEach((decision) => {
+          if (decision.residentId) decisionsByResident.set(decision.residentId, decision);
+        });
+      }
+    }
+
+    const data: SimulationResponse = {
+      decisions: [...decisionsByResident.values()],
+      coverage: decisionsByResident.size,
+    };
     updateTownState((draft) => {
       const residentById = new Map(draft.residents.map((resident) => [resident.id, resident]));
       const placeById = new Map(draft.places.map((place) => [place.id, place]));
-      const interactions: TownInteraction[] = (data.interactions || []).slice(0, 4).flatMap((item) => {
-        const participants = (item.participants || []).map((id) => residentById.get(id)).filter(Boolean) as Resident[];
-        const location = placeById.get(item.locationId || '') || placeById.get(participants[0]?.destinationId || '') || draft.places[0];
-        if (participants.length < 2 || !item.summary?.trim()) return [];
-        return [{ id: makeId('interaction'), participantIds: participants.map((resident) => resident.id), participantNames: participants.map((resident) => resident.name), locationId: location.id, locationName: location.name, summary: item.summary.trim(), dialogue: (item.dialogue || []).map((line) => line.trim()).filter(Boolean).slice(0, 4), createdAt: Date.now(), source: data.mode === 'llm' ? 'llm' : 'fallback' }];
-      });
-      const fallback = interactions.length === 0 ? fallbackInteraction(draft) : undefined;
-      draft.interactions = [...(fallback ? [fallback] : []), ...interactions, ...draft.interactions].slice(0, 300);
-      interactions.forEach((interaction) => draft.events.unshift({ id: makeId('event'), text: `${interaction.participantNames.join(' and ')} talked at ${interaction.locationName}.`, kind: 'interaction', createdAt: Date.now() }));
-      (data.decisions || []).slice(0, 30).forEach((item) => {
-        if (!item.residentId || !residentById.has(item.residentId) || !item.choice || !item.need) return;
-        draft.decisions.unshift({ id: makeId('decision'), residentId: item.residentId, createdAt: Date.now(), need: item.need, options: item.options || [], choice: item.choice, reason: item.reason || 'context and memory', outcome: item.outcome || 'the town keeps moving', locationId: item.locationId || residentById.get(item.residentId)!.destinationId });
+      (data.decisions || []).slice(0, 100).forEach((item) => {
+        const resident = item.residentId ? residentById.get(item.residentId) : undefined;
+        const destination = item.destinationId ? placeById.get(item.destinationId) : undefined;
+        if (!resident || !destination || !item.choice || !item.need || !item.activity) return;
+        resident.destinationId = destination.id;
+        resident.activity = item.activity.trim();
+        resident.mood = item.mood?.trim() || resident.mood;
+        resident.lastDecisionSource = 'llm';
+        resident.lastDecisionAt = Date.now();
+        draft.decisions.unshift({ id: makeId('decision'), residentId: resident.id, createdAt: Date.now(), need: item.need, options: item.options || [], choice: item.choice, reason: item.reason || 'retrieved memory and current context', outcome: item.outcome || 'the plan enters the memory stream', locationId: destination.id, source: 'llm', confidence: clamp(item.confidence ?? 0.75, 0, 1) });
       });
       if (data.event?.trim()) draft.events.unshift({ id: makeId('event'), text: data.event.trim(), kind: 'town', createdAt: Date.now() });
       draft.events = draft.events.slice(0, 80);
       draft.decisions = draft.decisions.slice(0, 600);
       draft.simulation.lastPulseAt = Date.now();
+      draft.simulation.llmCoverage = Math.min(data.coverage || 0, draft.residents.length);
+      draft.simulation.activeEncounters = encounters.length;
     });
   } catch {
     updateTownState((draft) => {
-      const fallback = fallbackInteraction(draft);
-      if (fallback) draft.interactions = [fallback, ...draft.interactions].slice(0, 300);
       draft.simulation.lastPulseAt = Date.now();
+      draft.simulation.llmCoverage = 0;
     });
   } finally {
     pulseInFlight = false;

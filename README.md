@@ -1,6 +1,6 @@
 # SF Town
 
-SF Town is a 2D pixel-art social simulation set across a foggy, colorful San Francisco. One hundred residents follow routines, move between landmarks, make local decisions, and meet each other while you wander through the town.
+SF Town is a top-down 2D pixel-art social simulation set across a foggy, colorful San Francisco. One hundred DeepSeek-planned residents follow routines, navigate collision-safe streets, make decisions, and hold multi-turn conversations only when their paths physically cross. Move your own character with the arrow keys or WASD.
 
 The runnable experience is local-first: the complete population, memory stream, conversations, interactions, decision trajectories, check-ins, and observer settings are persisted in the browser with `localStorage`. There is no Convex deployment or hosted database. The only network call is the optional server-side model proxy for DeepSeek through OpenRouter; without a key, the town remains playable in local fallback mode.
 
@@ -31,13 +31,15 @@ npm run lint
 
 ## Simulation and observation
 
-The `SIMULATION CONTROL ROOM` exposes pause/resume, step, speed, resident trajectory tracking, social memory, and a searchable event log. Each autonomous step advances routines, movement, energy, mood, and a decision branch for every resident. Social pulses ask the configured model to return resident-to-resident interactions and short dialogue, then store them in the local memory stream. Use `RESET` to restore the starter population.
+The `SIMULATION CONTROL ROOM` exposes pause/resume, step, speed, full-population model coverage, active encounter counts, resident trajectory tracking, social memory, and a searchable event log. Each model pulse sends all 100 residents to DeepSeek in parallel planning batches, then applies one validated decision per resident. Local pathfinding executes those plans on an explicit walkability graph. When two residents become co-located, their verified encounter is sent to DeepSeek for a 4–8 turn conversation and stored in the memory stream. Use `RESET` to restore the starter population.
+
+The map's `SHOW WALK GRID` control reveals the same path graph used for NPC pathfinding and visitor collision checks. Water, cliffs, buildings, trees, fences, transit objects, and street furniture are outside this graph and cannot be crossed.
 
 The model proxy runs at `http://localhost:8787` and Vite proxies `/api/town/*` to it. The active model defaults to `deepseek/deepseek-v4-flash-0731` and can be changed in `.env.local` without changing the client.
 
 ## Visuals
 
-The San Francisco panorama, landmark postcard sheet, and resident sprite sheet in `assets/generated/` were created with the built-in image generator for this project. They are used as the map scene, landmark cards, and 100 resident markers; the map overlays and UI remain crisp pixel-style elements.
+The top-down San Francisco town map, landmark postcard sheet, and resident sprite sheet in `assets/generated/` were created with the built-in image generator for this project. They are used as the playable plane, landmark cards, and 100 resident markers; deterministic navigation and collision data remain in code so movement can be validated independently from the artwork.
 
 ## Project notes
 

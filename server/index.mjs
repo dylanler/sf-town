@@ -76,21 +76,6 @@ function fallbackReply(resident, message) {
   return `${resident.name} nods from ${resident.neighborhood}. “That sounds like a good little plan for this part of the city.”`;
 }
 
-function fallbackPulse(body) {
-  const residents = Array.isArray(body.residents) ? body.residents : [];
-  const places = Array.isArray(body.places) ? body.places : [];
-  const first = residents[0];
-  const second = residents.find((resident) => resident.id !== first?.id) || residents[1];
-  const place = places.find((candidate) => candidate.id === first?.destinationId) || places[0] || { id: 'town', name: 'the fog' };
-  if (!first || !second) return { mode: 'fallback', event: 'The fog rearranged itself around the rooftops.' };
-  return {
-    mode: 'fallback',
-    event: `${first.name} noticed ${second.name} moving through ${place.name}; a small plan is taking shape.`,
-    interactions: [{ participants: [first.id, second.id], locationId: place.id, summary: `${first.name} and ${second.name} trade a quick hello while their routes overlap.`, dialogue: ['“See you around the neighborhood,” one says.'] }],
-    decisions: [{ residentId: first.id, need: first.goals?.[0] || 'stay connected', options: [first.activity || 'keep moving', 'say hello', 'take the scenic route'], choice: 'say hello', reason: 'a nearby familiar face', outcome: `shared a moment at ${place.name}`, locationId: place.id }],
-  };
-}
-
 async function chat(body) {
   const resident = body.resident || {};
   const history = Array.isArray(body.history) ? body.history.slice(-10) : [];
@@ -108,17 +93,125 @@ async function chat(body) {
   }
 }
 
+function chunks(values, size) {
+  const result = [];
+  for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size));
+  return result;
+}
+
+async function decideBatch(residents, places, minuteOfDay, memories) {
+  const population = residents.map((resident) => ({
+    id: resident.id,
+    name: resident.name,
+    role: resident.role,
+    neighborhood: resident.neighborhood,
+    activity: resident.activity,
+    mood: resident.mood,
+    energy: resident.energy,
+    goals: resident.goals,
+    traits: resident.traits,
+    destinationId: resident.destinationId,
+  }));
+  const prompt = `Plan the next beat for EVERY supplied resident in a living top-down pixel-art San Francisco town. Return ONLY compact valid JSON: {"decisions":[{"residentId":"exact supplied id","need":"current short need","options":["three plausible options"],"choice":"one exact option","reason":"short reason grounded in traits, memory, time, and energy","outcome":"short expected consequence","destinationId":"exact supplied place id","activity":"short present-tense activity","mood":"one word","confidence":0.0}]}. Return exactly one decision per supplied resident, no omissions and no extra IDs. Residents may continue their own work, rest, explore, or seek company. Do not invent a conversation here. Time minute: ${minuteOfDay}. Valid places: ${JSON.stringify(places.map((place) => ({ id: place.id, name: place.name, neighborhood: place.neighborhood })))}. Residents: ${JSON.stringify(population)}. Relevant recent memory: ${JSON.stringify(memories)}`;
+  const parsed = parseJson(await callModel([
+    { role: 'system', content: 'You are the planning and reflection layer for generative agents. Return only compact valid JSON, with one decision for every supplied ID.' },
+    { role: 'user', content: prompt },
+  ], { temperature: 0.78, max_tokens: 3600, timeout_ms: 55_000, json: true }));
+  return Array.isArray(parsed.decisions) ? parsed.decisions : [];
+}
+
+async function converseAtEncounters(encounters, places, memories) {
+  if (encounters.length === 0) return [];
+  const prompt = `Write natural conversations ONLY for these verified physical encounters in a top-down pixel-art San Francisco town. The listed pairs are currently close enough to meet on the same walkable path. Return ONLY compact valid JSON: {"interactions":[{"encounterId":"exact supplied encounter id","participants":["exact first id","exact second id"],"locationId":"exact place id","summary":"one sentence describing what develops","dialogue":["Name: line","Name: line","Name: line","Name: line"]}]}. Return one interaction per encounter. Each dialogue must contain 4-8 short alternating in-character turns that reflect both residents' work, goals, mood, and shared memory. Do not generate dialogue for anyone outside a supplied encounter. Places: ${JSON.stringify(places.map((place) => ({ id: place.id, name: place.name })))}. Encounters: ${JSON.stringify(encounters)}. Recent memory: ${JSON.stringify(memories)}`;
+  const parsed = parseJson(await callModel([
+    { role: 'system', content: 'You create grounded multi-turn social encounters for generative agents. Return only compact valid JSON.' },
+    { role: 'user', content: prompt },
+  ], { temperature: 0.9, max_tokens: 3200, timeout_ms: 55_000, json: true }));
+  return Array.isArray(parsed.interactions) ? parsed.interactions : [];
+}
+
+function validDecisions(rawDecisions, residents, places) {
+  const residentIds = new Set(residents.map((resident) => resident.id));
+  const placeIds = new Set(places.map((place) => place.id));
+  const seen = new Set();
+  return rawDecisions.filter((decision) => {
+    if (!residentIds.has(decision?.residentId) || seen.has(decision.residentId)) return false;
+    if (!placeIds.has(decision.destinationId) || !decision.choice || !decision.activity || !decision.need) return false;
+    seen.add(decision.residentId);
+    return true;
+  });
+}
+
+function validInteractions(rawInteractions, encounters) {
+  const byId = new Map(encounters.map((encounter) => [encounter.id, encounter]));
+  return rawInteractions.filter((interaction) => {
+    const encounter = byId.get(interaction?.encounterId);
+    if (!encounter || !Array.isArray(interaction.dialogue) || interaction.dialogue.length < 2) return false;
+    const expected = [...encounter.participantIds].sort().join('|');
+    const actual = [...(interaction.participants || [])].sort().join('|');
+    return expected === actual;
+  });
+}
+
 async function simulation(body) {
-  const residents = Array.isArray(body.residents) ? body.residents.slice(0, 12) : [];
+  const residents = Array.isArray(body.residents) ? body.residents.slice(0, 100) : [];
   const places = Array.isArray(body.places) ? body.places : [];
-  const population = residents.map((resident) => ({ id: resident.id, name: resident.name, role: resident.role, neighborhood: resident.neighborhood, activity: resident.activity, mood: resident.mood, goals: resident.goals, destinationId: resident.destinationId }));
-  const prompt = `Advance one social pulse in a fictional 2D pixel-art San Francisco town. Return ONLY compact valid JSON: {"event":"one sentence under 140 chars","interactions":[{"participants":["id","id"],"locationId":"place id","summary":"one sentence","dialogue":["one short natural line"]}],"decisions":[{"residentId":"id","need":"short need","options":["three options"],"choice":"exact option","reason":"short reason","outcome":"short consequence","locationId":"place id"}]}. Include 1-2 neighbor interactions and 3-5 decisions. Only use supplied IDs. No markdown, no narration, no unsafe events. Time: ${body.minuteOfDay}. Places: ${JSON.stringify(places.map((place) => ({ id: place.id, name: place.name })))}. Residents: ${JSON.stringify(population)}. Recent memory: ${JSON.stringify(body.recentInteractions || [])}`;
+  const encounters = Array.isArray(body.encounters) ? body.encounters.slice(0, 8) : [];
+  const memories = Array.isArray(body.recentInteractions) ? body.recentInteractions.slice(0, 12) : [];
+  if (!apiKey) return { mode: 'fallback', model, coverage: 0, decisions: [], interactions: [], event: 'DeepSeek is offline; residents are following their local routines.' };
+
+  const decisionResults = await Promise.allSettled(chunks(residents, 20).map((batch) => decideBatch(batch, places, body.minuteOfDay, memories)));
+  const firstPass = decisionResults.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
+  let decisions = validDecisions(firstPass, residents, places);
+  const decidedIds = new Set(decisions.map((decision) => decision.residentId));
+  const missing = residents.filter((resident) => !decidedIds.has(resident.id));
+  if (missing.length > 0) {
+    const retryResults = await Promise.allSettled(chunks(missing, 10).map((batch) => decideBatch(batch, places, body.minuteOfDay, memories)));
+    decisions = validDecisions([...decisions, ...retryResults.flatMap((result) => result.status === 'fulfilled' ? result.value : [])], residents, places);
+  }
+
+  let interactions = [];
+  if (encounters.length > 0) {
+    try {
+      interactions = validInteractions(await converseAtEncounters(encounters, places, memories), encounters);
+    } catch (error) {
+      console.warn(`SF Town encounter dialogue unavailable: ${error instanceof Error ? error.message : 'unknown error'}`);
+    }
+  }
+  const coverage = decisions.length;
+  return {
+    mode: coverage === residents.length ? 'llm' : 'partial',
+    model,
+    coverage,
+    decisions,
+    interactions,
+    event: `${coverage}/${residents.length} residents reflected on their next move${interactions.length ? `; ${interactions.length} path encounter${interactions.length === 1 ? '' : 's'} became conversations` : ''}.`,
+  };
+}
+
+async function residentDecisions(body) {
+  const residents = Array.isArray(body.residents) ? body.residents.slice(0, 20) : [];
+  const places = Array.isArray(body.places) ? body.places : [];
+  if (!apiKey || residents.length === 0) return { mode: 'fallback', model, coverage: 0, decisions: [] };
   try {
-    const parsed = parseJson(await callModel([{ role: 'system', content: 'Return only compact valid JSON. Do not include reasoning or markdown.' }, { role: 'user', content: prompt }], { temperature: 0.88, max_tokens: 1200, timeout_ms: 30_000, json: true }));
-    return { ...parsed, mode: 'llm', model };
+    const decisions = validDecisions(await decideBatch(residents, places, body.minuteOfDay, body.recentInteractions || []), residents, places);
+    return { mode: decisions.length === residents.length ? 'llm' : 'partial', model, coverage: decisions.length, decisions };
   } catch (error) {
-    console.warn(`SF Town simulation fallback: ${error instanceof Error ? error.message : 'unknown error'}`);
-    return fallbackPulse(body);
+    console.warn(`SF Town decision batch unavailable: ${error instanceof Error ? error.message : 'unknown error'}`);
+    return { mode: 'fallback', model, coverage: 0, decisions: [] };
+  }
+}
+
+async function encounterConversations(body) {
+  const encounters = Array.isArray(body.encounters) ? body.encounters.slice(0, 8) : [];
+  const places = Array.isArray(body.places) ? body.places : [];
+  if (!apiKey || encounters.length === 0) return { mode: apiKey ? 'llm' : 'fallback', model, interactions: [] };
+  try {
+    const interactions = validInteractions(await converseAtEncounters(encounters, places, body.recentInteractions || []), encounters);
+    return { mode: 'llm', model, interactions };
+  } catch (error) {
+    console.warn(`SF Town encounter dialogue unavailable: ${error instanceof Error ? error.message : 'unknown error'}`);
+    return { mode: 'fallback', model, interactions: [] };
   }
 }
 
@@ -133,6 +226,8 @@ const server = http.createServer(async (request, response) => {
   try {
     const body = await readJson(request);
     if (request.url === '/api/town/chat' && request.method === 'POST') { sendJson(response, 200, await chat(body)); return; }
+    if (request.url === '/api/town/decisions' && request.method === 'POST') { sendJson(response, 200, await residentDecisions(body)); return; }
+    if (request.url === '/api/town/encounters' && request.method === 'POST') { sendJson(response, 200, await encounterConversations(body)); return; }
     if (request.url === '/api/town/simulation' && request.method === 'POST') { sendJson(response, 200, await simulation(body)); return; }
     if (request.url === '/api/town/ambient' && request.method === 'POST') { sendJson(response, 200, await simulation(body)); return; }
     sendJson(response, 404, { error: 'Town endpoint not found' });
