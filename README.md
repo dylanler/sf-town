@@ -1,13 +1,15 @@
 # SF Town
 
-SF Town is a small 2D pixel-art social simulation set across a foggy, colorful San Francisco. Pick a neighborhood, check in at landmarks, and leave notes for the residents who live there.
+SF Town is a 2D pixel-art social simulation set across a foggy, colorful San Francisco. One hundred residents follow routines, move between landmarks, make local decisions, and meet each other while you wander through the town.
 
-The runnable experience is local-first: town state is persisted in the browser with `localStorage`. There is no Convex deployment, hosted database, auth provider, or required LLM connection in the app path.
+The runnable experience is local-first: the complete population, memory stream, conversations, interactions, decision trajectories, check-ins, and observer settings are persisted in the browser with `localStorage`. There is no Convex deployment or hosted database. The only network call is the optional server-side model proxy for DeepSeek through OpenRouter; without a key, the town remains playable in local fallback mode.
 
 ## Run it
 
 ```bash
 npm install
+cp .env.example .env.local
+# add your OPENROUTER_API_KEY to .env.local
 npm run dev
 ```
 
@@ -27,13 +29,15 @@ npm run check
 npm run lint
 ```
 
-## Local data
+## Simulation and observation
 
-The app seeds a starter town on first load and stores edits, check-ins, profile changes, messages, and town events under the `sf-town.local-db.v1` browser storage key. Use the `RESET` control in the top bar to restore the starter scene.
+The `SIMULATION CONTROL ROOM` exposes pause/resume, step, speed, resident trajectory tracking, social memory, and a searchable event log. Each autonomous step advances routines, movement, energy, mood, and a decision branch for every resident. Social pulses ask the configured model to return resident-to-resident interactions and short dialogue, then store them in the local memory stream. Use `RESET` to restore the starter population.
+
+The model proxy runs at `http://localhost:8787` and Vite proxies `/api/town/*` to it. The active model defaults to `deepseek/deepseek-v4-flash-0731` and can be changed in `.env.local` without changing the client.
 
 ## Visuals
 
-The San Francisco panorama and landmark postcard sheet in `assets/generated/` were created with the built-in image generator for this project. They are used as the map scene and the landmark cards; the map overlays and resident markers are deliberately rendered as crisp pixel-style UI elements.
+The San Francisco panorama, landmark postcard sheet, and resident sprite sheet in `assets/generated/` were created with the built-in image generator for this project. They are used as the map scene, landmark cards, and 100 resident markers; the map overlays and UI remain crisp pixel-style elements.
 
 ## Project notes
 
