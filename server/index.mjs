@@ -141,6 +141,27 @@ const server = http.createServer(async (request, response) => {
   }
 });
 
+server.on('error', async (error) => {
+  if (error.code === 'EADDRINUSE') {
+    try {
+      const existing = await fetch(`http://127.0.0.1:${port}/api/town/health`);
+      const health = await existing.json();
+      if (existing.ok && health?.provider === 'openrouter') {
+        console.warn(`SF Town LLM proxy is already running on http://localhost:${port}; reusing it.`);
+        setInterval(() => {}, 60_000);
+        return;
+      }
+    } catch {
+      // The port is occupied by another service; report the actionable error below.
+    }
+    console.error(`Port ${port} is already in use by another service. Stop that process or set LLM_PORT to a free port and update the Vite proxy.`);
+    process.exitCode = 1;
+    return;
+  }
+  console.error('SF Town LLM proxy failed to start:', error);
+  process.exitCode = 1;
+});
+
 server.listen(port, '0.0.0.0', () => {
   console.log(`SF Town LLM proxy listening on http://localhost:${port} (${apiKey ? 'configured' : 'fallback mode'})`);
 });
