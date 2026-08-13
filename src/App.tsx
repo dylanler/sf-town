@@ -1,201 +1,353 @@
-import Game from './components/Game.tsx';
+import { FormEvent, type CSSProperties, useMemo, useState } from 'react';
+import panoramaUrl from '../assets/generated/sf-town-panorama.png';
+import landmarkSheetUrl from '../assets/generated/sf-landmark-sheet.png';
+import {
+  resetTown,
+  saveVisitorProfile,
+  sendChatMessage,
+  useTownState,
+  visitPlace,
+  type Resident,
+  type TownPlace,
+} from './localDb';
 
-import { ToastContainer } from 'react-toastify';
-import starImg from '../assets/star.svg';
-import helpImg from '../assets/help.svg';
-import chatsImg from '../assets/ui/chats.svg';
-// import { UserButton } from '@clerk/clerk-react';
-// import { Authenticated, Unauthenticated } from 'convex/react';
-// import LoginButton from './components/buttons/LoginButton.tsx';
-import { useState } from 'react';
-import { useQuery } from 'convex/react';
-import { api } from '../convex/_generated/api';
-import POIImport from './components/POIImport';
-import ReactModal from 'react-modal';
-import MusicButton from './components/buttons/MusicButton.tsx';
-import Button from './components/buttons/Button.tsx';
-import InteractButton from './components/buttons/InteractButton.tsx';
-import FreezeButton from './components/FreezeButton.tsx';
-import { MAX_HUMAN_PLAYERS } from '../convex/constants.ts';
-import CharacterInitForm from './components/CharacterInitForm.tsx';
-import ConversationsModal from './components/ConversationsModal.tsx';
-import GenerateGameModal from './components/GenerateGameModal';
-import GameSimulationModal, { type GameConfig } from './components/GameSimulationModal';
-import { toast } from 'react-toastify';
-import DailyReportModal from './components/DailyReportModal';
- 
+const accentOptions = ['#f6c453', '#f08a5d', '#38b7a5', '#c771d3', '#7c8ee8'];
 
-export default function Home() {
-  const [helpModalOpen, setHelpModalOpen] = useState(false);
-  const [playerName, setPlayerName] = useState('Dylan');
-  const [playerCharacter, setPlayerCharacter] = useState('f1');
-  const [playerDescription, setPlayerDescription] = useState('25 years old, I love hackathons');
-  const [conversationsOpen, setConversationsOpen] = useState(false);
-  const [generateGameOpen, setGenerateGameOpen] = useState(false);
-  const [simulationOpen, setSimulationOpen] = useState(false);
-  const [simulationConfig, setSimulationConfig] = useState<GameConfig | undefined>(undefined);
-  const [dailyReportOpen, setDailyReportOpen] = useState(false);
-  const defaultWorld = useQuery(api.world.defaultWorldStatus);
-  const worldId = defaultWorld?.worldId;
+export default function App() {
+  const town = useTownState();
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string>();
+  const [selectedResidentId, setSelectedResidentId] = useState<string | undefined>('maya');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [view, setView] = useState<'map' | 'districts'>('map');
+
+  const selectedPlace = town.places.find((place) => place.id === selectedPlaceId);
+  const selectedResident = town.residents.find((resident) => resident.id === selectedResidentId);
+  const conversationMessages = useMemo(
+    () =>
+      town.messages
+        .filter((message) => message.residentId === selectedResidentId)
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .slice(-8),
+    [town.messages, selectedResidentId],
+  );
+
+  const selectPlace = (place: TownPlace) => {
+    setSelectedPlaceId(place.id);
+    setSelectedResidentId(undefined);
+  };
+
+  const selectResident = (resident: Resident) => {
+    setSelectedResidentId(resident.id);
+    setSelectedPlaceId(undefined);
+  };
+
+  const resetLocalTown = () => {
+    if (window.confirm('Reset this browser\'s local town data to the starter scene?')) resetTown();
+  };
+
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-between font-body game-background">
-      
-
-      <ReactModal
-        isOpen={helpModalOpen}
-        onRequestClose={() => setHelpModalOpen(false)}
-        style={modalStyles}
-        contentLabel="Help modal"
-        ariaHideApp={false}
-      >
-        <div className="font-body">
-          <h1 className="text-center text-6xl font-bold font-display game-title">Help</h1>
-          <p>
-            Welcome to AI town. AI town supports both anonymous <i>spectators</i> and logged in{' '}
-            <i>interactivity</i>.
-          </p>
-          <h2 className="text-4xl mt-4">Spectating</h2>
-          <p>
-            Click and drag to move around the town, and scroll in and out to zoom. You can click on
-            an individual character to view its chat history.
-          </p>
-          <h2 className="text-4xl mt-4">Interactivity</h2>
-          <p>
-            If you log in, you can join the simulation and directly talk to different agents! After
-            logging in, click the "Interact" button, and your character will appear somewhere on the
-            map with a highlighted circle underneath you.
-          </p>
-          <p className="text-2xl mt-2">Controls:</p>
-          <p className="mt-4">Click to navigate around.</p>
-          <p className="mt-4">
-            To talk to an agent, click on them and then click "Start conversation," which will ask
-            them to start walking towards you. Once they're nearby, the conversation will start, and
-            you can speak to each other. You can leave at any time by closing the conversation pane
-            or moving away. They may propose a conversation to you - you'll see a button to accept
-            in the messages panel.
-          </p>
-          <p className="mt-4">
-            AI town only supports {MAX_HUMAN_PLAYERS} humans at a time. If you're idle for five
-            minutes, you'll be automatically removed from the simulation.
-          </p>
+    <div className="app-shell">
+      <header className="topbar">
+        <a className="brand" href="/" aria-label="SF Town home">
+          <span className="brand-mark" aria-hidden="true">
+            SF
+          </span>
+          <span>
+            <strong>SF TOWN</strong>
+            <small>LOCAL SIMULACRA</small>
+          </span>
+        </a>
+        <div className="topbar-meta">
+          <span className="sync-chip"><i /> LOCAL DB SYNCED</span>
+          <button className="text-button" onClick={() => setProfileOpen(true)}>EDIT YOUR CARD</button>
+          <button className="reset-button" onClick={resetLocalTown}>RESET</button>
         </div>
-      </ReactModal>
-      {/*<div className="p-3 absolute top-0 right-0 z-10 text-2xl">
-        <Authenticated>
-          <UserButton afterSignOutUrl="/ai-town" />
-        </Authenticated>
+      </header>
 
-        <Unauthenticated>
-          <LoginButton />
-        </Unauthenticated>
-      </div> */}
-
-      <div className="w-full lg:h-screen min-h-screen relative isolate overflow-hidden lg:p-8 shadow-2xl flex flex-col justify-start">
-        <h1 className="mx-auto text-4xl p-3 sm:text-8xl lg:text-9xl font-bold font-display leading-none tracking-wide game-title w-full text-left sm:text-center sm:w-auto">
-          San Francisco Simulacra
-        </h1>
-
-        <div className="max-w-xs md:max-w-xl lg:max-w-none mx-auto my-4 text-center text-base sm:text-xl md:text-2xl text-white leading-tight shadow-solid">
-          A virtual town where digital twins of real people live, chat, game, and socialize.
-          {/* <Unauthenticated>
-            <div className="my-1.5 sm:my-0" />
-            Log in to join the town
-            <br className="block sm:hidden" /> and the conversation!
-          </Unauthenticated> */}
-        </div>
-
-        <div className="mb-4 w-full flex flex-col items-center gap-3">
-          <CharacterInitForm
-            name={playerName}
-            setName={setPlayerName}
-            character={playerCharacter}
-            setCharacter={setPlayerCharacter}
-            description={playerDescription}
-            setDescription={setPlayerDescription}
-          />
-        </div>
-
-        {/* Import POIs */}
-        {worldId && (
-          <div className="w-full flex flex-col items-center gap-3">
-            <POIImport worldId={worldId} />
+      <main className="page-wrap">
+        <section className="intro-row">
+          <div>
+            <p className="eyebrow"><span className="eyebrow-line" /> SAN FRANCISCO / 07:42 PM / FOG ROLLING IN</p>
+            <h1>Every block has<br /><em>a little story.</em></h1>
+            <p className="intro-copy">
+              A tiny, persistent 2D pixel-art town for wandering, chatting, and finding the good light.
+              Everything you do is saved in this browser.
+            </p>
           </div>
-        )}
-
-        <Game />
-
-        <footer className="justify-end bottom-0 left-0 w-full flex items-center mt-4 gap-3 p-6 flex-wrap pointer-events-none">
-          <div className="flex gap-4 flex-grow pointer-events-none">
-            <FreezeButton />
-            <MusicButton />
-            <Button href="https://github.com/a16z-infra/ai-town" imgUrl={starImg}>
-              Star
-            </Button>
-            <InteractButton
-              name={playerName}
-              character={playerCharacter}
-              description={playerDescription}
-            />
-            <Button imgUrl={chatsImg} onClick={() => setConversationsOpen(true)}>
-              Conversations
-            </Button>
-            <Button imgUrl={helpImg} onClick={() => setHelpModalOpen(true)}>
-              Help
-            </Button>
-            <Button imgUrl={starImg} onClick={() => setGenerateGameOpen(true)}>
-              Generate a game
-            </Button>
-          <Button imgUrl={starImg} onClick={() => setDailyReportOpen(true)}>
-            Generate Daily Report
-          </Button>
+          <div className="town-stats" aria-label="Town statistics">
+            <div><strong>{town.residents.length}</strong><span>RESIDENTS</span></div>
+            <div><strong>{town.places.length}</strong><span>LANDMARKS</span></div>
+            <div><strong>{town.visitedPlaceIds.length}</strong><span>CHECK-INS</span></div>
           </div>
-          
+        </section>
+
+        <section className="workspace-grid">
+          <div className="map-column">
+            <div className="section-heading">
+              <div>
+                <p className="section-kicker">TOWN MAP / LIVE VIEW</p>
+                <h2>Find your way around</h2>
+              </div>
+              <div className="view-switcher" role="tablist" aria-label="Town view">
+                <button className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>MAP</button>
+                <button className={view === 'districts' ? 'active' : ''} onClick={() => setView('districts')}>DISTRICTS</button>
+              </div>
+            </div>
+
+            {view === 'map' ? (
+              <TownMap
+                panoramaUrl={panoramaUrl}
+                places={town.places}
+                residents={town.residents}
+                selectedPlaceId={selectedPlaceId}
+                selectedResidentId={selectedResidentId}
+                visitorName={town.visitorName}
+                visitorAccent={town.visitorAccent}
+                onPlaceClick={selectPlace}
+                onResidentClick={selectResident}
+              />
+            ) : (
+              <DistrictGrid places={town.places} visitedPlaceIds={town.visitedPlaceIds} onPlaceClick={selectPlace} />
+            )}
+
+            <div className="map-caption">
+              <span><i className="legend-dot legend-you" /> YOU / {town.visitorName.toUpperCase()}</span>
+              <span><i className="legend-dot legend-resident" /> RESIDENTS</span>
+              <span><i className="legend-pin" /> PLACES TO DISCOVER</span>
+              <span className="caption-note">CLICK A PIN TO EXPLORE</span>
+            </div>
+          </div>
+
+          <aside className="right-rail">
+            {selectedPlace ? (
+              <PlaceCard
+                place={selectedPlace}
+                visited={town.visitedPlaceIds.includes(selectedPlace.id)}
+                onClose={() => setSelectedPlaceId(undefined)}
+                onVisit={() => visitPlace(selectedPlace)}
+              />
+            ) : selectedResident ? (
+              <ResidentCard
+                resident={selectedResident}
+                onClose={() => setSelectedResidentId(undefined)}
+                onTalk={() => document.getElementById('town-chat')?.scrollIntoView({ behavior: 'smooth' })}
+              />
+            ) : (
+              <ProfileCard town={town} onEdit={() => setProfileOpen(true)} />
+            )}
+
+            <section className="panel residents-panel">
+              <div className="panel-heading">
+                <div><p className="section-kicker">THE NEIGHBORS</p><h3>Residents online</h3></div>
+                <span className="online-count"><i /> {town.residents.filter((resident) => resident.status === 'online').length} LIVE</span>
+              </div>
+              <div className="resident-list">
+                {town.residents.map((resident) => (
+                  <button
+                    className={`resident-row ${selectedResidentId === resident.id ? 'selected' : ''}`}
+                    key={resident.id}
+                    onClick={() => selectResident(resident)}
+                  >
+                    <PixelAvatar accent={resident.accent} size="small" />
+                    <span className="resident-copy"><strong>{resident.name}</strong><small>{resident.role} · {resident.neighborhood}</small></span>
+                    <span className={`status-dot ${resident.status}`} title={resident.status} />
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {selectedResident && (
+              <ChatPanel
+                resident={selectedResident}
+                messages={conversationMessages}
+                visitorName={town.visitorName}
+              />
+            )}
+
+            <ActivityPanel events={town.events} />
+          </aside>
+        </section>
+
+        <section className="landmark-strip">
+          <div className="strip-heading">
+            <div><p className="section-kicker">POSTCARD WALL</p><h2>Six ways to spend an afternoon</h2></div>
+            <button className="text-button" onClick={() => setView('districts')}>VIEW ALL DISTRICTS →</button>
+          </div>
+          <div className="postcard-grid">
+            {town.places.map((place) => (
+              <button className="postcard" key={place.id} onClick={() => selectPlace(place)}>
+                <LandmarkTile place={place} />
+                <span><strong>{place.name}</strong><small>{place.neighborhood}</small></span>
+                {town.visitedPlaceIds.includes(place.id) && <b className="visited-ribbon">VISITED</b>}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <footer className="footer-note">
+          <span>SF TOWN / MADE FOR SLOW DIGITAL WALKS</span>
+          <span>DATA LIVES IN <code>localStorage</code> · NO CLOUD DATABASE REQUIRED</span>
         </footer>
-        <ToastContainer position="bottom-right" autoClose={2000} closeOnClick theme="dark" />
-        <ConversationsModal isOpen={conversationsOpen} onRequestClose={() => setConversationsOpen(false)} />
-        <GenerateGameModal
-          isOpen={generateGameOpen}
-          onRequestClose={() => setGenerateGameOpen(false)}
-          onGenerate={(config) => {
-            // Open visual simulation modal with selected config
-            setSimulationConfig({
-              gameType: config.gameType,
-              agentOneName: config.agentOneName,
-              agentTwoName: config.agentTwoName,
-            });
-            setGenerateGameOpen(false);
-            setSimulationOpen(true);
-          }}
-        />
-        <GameSimulationModal
-          isOpen={simulationOpen}
-          onRequestClose={() => setSimulationOpen(false)}
-          config={simulationConfig}
-        />
-        <DailyReportModal isOpen={dailyReportOpen} onRequestClose={() => setDailyReportOpen(false)} />
-      </div>
-    </main>
+      </main>
+
+      {profileOpen && <ProfileEditor town={town} onClose={() => setProfileOpen(false)} />}
+    </div>
   );
 }
 
-const modalStyles = {
-  overlay: {
-    backgroundColor: 'rgb(0, 0, 0, 75%)',
-    zIndex: 12,
-  },
-  content: {
-    top: '50%',
-    left: '50%',
-    right: 'auto',
-    bottom: 'auto',
-    marginRight: '-50%',
-    transform: 'translate(-50%, -50%)',
-    maxWidth: '50%',
+function TownMap({
+  panoramaUrl,
+  places,
+  residents,
+  selectedPlaceId,
+  selectedResidentId,
+  visitorName,
+  visitorAccent,
+  onPlaceClick,
+  onResidentClick,
+}: {
+  panoramaUrl: string;
+  places: TownPlace[];
+  residents: Resident[];
+  selectedPlaceId?: string;
+  selectedResidentId?: string;
+  visitorName: string;
+  visitorAccent: string;
+  onPlaceClick: (place: TownPlace) => void;
+  onResidentClick: (resident: Resident) => void;
+}) {
+  return (
+    <div className="town-map-frame">
+      <img className="town-panorama" src={panoramaUrl} alt="Pixel-art San Francisco town with the Golden Gate Bridge and foggy bay" />
+      <div className="map-vignette" />
+      <div className="map-grid-overlay" />
+      <div className="map-label map-label-bay">THE BAY</div>
+      <div className="map-label map-label-mission">MISSION</div>
+      <div className="map-label map-label-north">NORTH BEACH</div>
+      {places.map((place) => (
+        <button
+          key={place.id}
+          className={`map-marker place-marker ${selectedPlaceId === place.id ? 'selected' : ''}`}
+          style={{ left: `${place.position.left}%`, top: `${place.position.top}%`, '--marker-color': place.accent } as CSSProperties}
+          onClick={() => onPlaceClick(place)}
+          aria-label={`Explore ${place.name}`}
+        >
+          <span className="marker-pin"><i /></span>
+          <span className="marker-label">{place.name}</span>
+        </button>
+      ))}
+      {residents.map((resident) => (
+        <button
+          key={resident.id}
+          className={`map-marker resident-marker ${selectedResidentId === resident.id ? 'selected' : ''}`}
+          style={{ left: `${resident.position.left}%`, top: `${resident.position.top}%`, '--marker-color': resident.accent } as CSSProperties}
+          onClick={() => onResidentClick(resident)}
+          aria-label={`Talk with ${resident.name}`}
+        >
+          <PixelAvatar accent={resident.accent} size="map" />
+          <span className="resident-tag">{resident.name.split(' ')[0]}</span>
+        </button>
+      ))}
+      <div className="visitor-marker" style={{ left: '51%', top: '53%', '--marker-color': visitorAccent } as CSSProperties}>
+        <PixelAvatar accent={visitorAccent} size="map" />
+        <span className="resident-tag">{visitorName.split(' ')[0]}</span>
+      </div>
+      <div className="map-compass" aria-hidden="true"><span>N</span><b>✦</b></div>
+    </div>
+  );
+}
 
-    border: '10px solid rgb(23, 20, 33)',
-    borderRadius: '0',
-    background: 'rgb(35, 38, 58)',
-    color: 'white',
-    fontFamily: '"Upheaval Pro", "sans-serif"',
-  },
-};
+function ProfileCard({ town, onEdit }: { town: ReturnType<typeof useTownState>; onEdit: () => void }) {
+  return (
+    <section className="profile-card panel">
+      <div className="profile-card-top"><span className="section-kicker">YOUR TOWN CARD</span><button className="tiny-link" onClick={onEdit}>EDIT</button></div>
+      <div className="profile-main"><PixelAvatar accent={town.visitorAccent} size="large" /><div><h3>{town.visitorName}</h3><p>{town.visitorBio}</p></div></div>
+      <div className="profile-footer"><span><i className="status-dot online" /> wandering now</span><span>CHECK-INS {town.visitedPlaceIds.length}/6</span></div>
+    </section>
+  );
+}
+
+function PlaceCard({ place, visited, onClose, onVisit }: { place: TownPlace; visited: boolean; onClose: () => void; onVisit: () => void }) {
+  return (
+    <section className="detail-card panel" style={{ '--detail-color': place.accent } as CSSProperties}>
+      <div className="detail-card-image"><LandmarkTile place={place} /><button className="close-button" onClick={onClose} aria-label="Close place details">×</button></div>
+      <div className="detail-card-copy"><span className="section-kicker">{place.category} / {place.neighborhood}</span><h3>{place.name}</h3><p>{place.description}</p></div>
+      <button className={`primary-action ${visited ? 'visited' : ''}`} onClick={onVisit}>{visited ? '✓ CHECKED IN' : 'CHECK IN HERE'}</button>
+    </section>
+  );
+}
+
+function ResidentCard({ resident, onClose, onTalk }: { resident: Resident; onClose: () => void; onTalk: () => void }) {
+  return (
+    <section className="detail-card resident-detail panel" style={{ '--detail-color': resident.accent } as CSSProperties}>
+      <div className="resident-detail-top"><PixelAvatar accent={resident.accent} size="large" /><button className="close-button" onClick={onClose} aria-label="Close resident details">×</button></div>
+      <div className="detail-card-copy"><span className="section-kicker">{resident.role} / {resident.neighborhood}</span><h3>{resident.name}</h3><p>{resident.bio}</p></div>
+      <button className="primary-action" onClick={onTalk}>OPEN CONVERSATION</button>
+    </section>
+  );
+}
+
+function ChatPanel({ resident, messages, visitorName }: { resident: Resident; messages: ReturnType<typeof useTownState>['messages']; visitorName: string }) {
+  const [text, setText] = useState('');
+  const residentMessages = messages.filter((message) => message.residentId === resident.id);
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    sendChatMessage(resident, text);
+    setText('');
+  };
+  return (
+    <section className="panel chat-panel" id="town-chat">
+      <div className="panel-heading"><div><p className="section-kicker">LOCAL FREQUENCY</p><h3>Talk to {resident.name.split(' ')[0]}</h3></div><span className="chat-signal">● OPEN</span></div>
+      <div className="messages-list">
+        {residentMessages.length === 0 && <p className="empty-copy">The line is quiet. Say hello.</p>}
+        {residentMessages.map((message) => (
+          <div className={`message-bubble ${message.author === 'you' ? 'mine' : ''}`} key={message.id}>
+            <span>{message.author === 'you' ? visitorName : resident.name}</span><p>{message.text}</p>
+          </div>
+        ))}
+      </div>
+      <form className="message-form" onSubmit={onSubmit}><input value={text} onChange={(event) => setText(event.target.value)} placeholder="Leave a note..." aria-label={`Message ${resident.name}`} /><button type="submit" aria-label="Send message">↗</button></form>
+    </section>
+  );
+}
+
+function ActivityPanel({ events }: { events: ReturnType<typeof useTownState>['events'] }) {
+  return (
+    <section className="panel activity-panel"><div className="panel-heading"><div><p className="section-kicker">TOWN RADIO</p><h3>Recent signals</h3></div><span className="signal-bars" aria-hidden="true">▂▅▇</span></div><div className="activity-list">{events.slice(0, 4).map((event) => <div className="activity-row" key={event.id}><i className={`activity-icon ${event.kind}`} /><span>{event.text}</span><time>{timeAgo(event.createdAt)}</time></div>)}</div></section>
+  );
+}
+
+function DistrictGrid({ places, visitedPlaceIds, onPlaceClick }: { places: TownPlace[]; visitedPlaceIds: string[]; onPlaceClick: (place: TownPlace) => void }) {
+  return <div className="district-grid">{places.map((place) => <button className="district-card" key={place.id} onClick={() => onPlaceClick(place)}><LandmarkTile place={place} /><span className="district-card-copy"><small>{place.category}</small><strong>{place.name}</strong><em>{place.neighborhood}</em>{visitedPlaceIds.includes(place.id) && <b>VISITED</b>}</span></button>)}</div>;
+}
+
+function LandmarkTile({ place }: { place: TownPlace }) {
+  const column = place.sheetIndex % 2;
+  const row = Math.floor(place.sheetIndex / 2);
+  return <span className="landmark-tile" style={{ backgroundImage: `url(${landmarkSheetUrl})`, backgroundPosition: `${column * 100}% ${row * 100}%` }} aria-hidden="true" />;
+}
+
+function PixelAvatar({ accent, size }: { accent: string; size: 'small' | 'map' | 'large' }) {
+  return <span className={`pixel-avatar ${size}`} style={{ '--avatar-color': accent } as CSSProperties} aria-hidden="true"><i className="avatar-head" /><i className="avatar-body" /><i className="avatar-leg left" /><i className="avatar-leg right" /></span>;
+}
+
+function ProfileEditor({ town, onClose }: { town: ReturnType<typeof useTownState>; onClose: () => void }) {
+  const [name, setName] = useState(town.visitorName);
+  const [bio, setBio] = useState(town.visitorBio);
+  const [accent, setAccent] = useState(town.visitorAccent);
+  const save = (event: FormEvent) => {
+    event.preventDefault();
+    saveVisitorProfile(name, bio, accent);
+    onClose();
+  };
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><form className="profile-modal" onSubmit={save}><div className="modal-top"><div><p className="section-kicker">YOUR TOWN CARD</p><h2>How should the town know you?</h2></div><button type="button" className="close-button" onClick={onClose}>×</button></div><label>NAME<input value={name} onChange={(event) => setName(event.target.value)} maxLength={32} /></label><label>ONE-LINE BIO<textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={90} rows={3} /></label><div><span className="form-label">CARD COLOR</span><div className="accent-picker">{accentOptions.map((option) => <button type="button" key={option} className={accent === option ? 'picked' : ''} style={{ background: option }} onClick={() => setAccent(option)} aria-label={`Choose ${option}`} />)}</div></div><div className="modal-actions"><button type="button" className="secondary-action" onClick={onClose}>CANCEL</button><button type="submit" className="primary-action">SAVE CARD</button></div></form></div>;
+}
+
+function timeAgo(timestamp: number) {
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+  if (minutes < 1) return 'now';
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
